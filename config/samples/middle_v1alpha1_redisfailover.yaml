@@ -1,0 +1,19 @@
+apiVersion: middle.alauda.cn/v1alpha1
+kind: RedisFailover
+metadata:
+  namespace: operators
+  name: redisfailover-sample
+spec:
+  redis: {}
+#    storage:
+#      keepAfterDeletion: false
+#      persistentVolumeClaim:
+#        metadata:
+#          name: redis-data-test
+#        spec:
+#          accessModes: [ "ReadWriteOnce" ]
+#          storageClassName: "local-path"
+#          resources:
+#            requests:
+#              storage: 1Gi
+

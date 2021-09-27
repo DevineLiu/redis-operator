@@ -1,0 +1,29 @@
+domain: alauda.cn
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: redis-operator
+repo: github.com/DevineLiu/redis-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: alauda.cn
+  group: middle
+  kind: RedisFailover
+  path: github.com/DevineLiu/redis-operator/apis/middle/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: alauda.cn
+  group: middle
+  kind: RedisBackup
+  path: github.com/DevineLiu/redis-operator/apis/middle/v1alpha1
+  version: v1alpha1
+version: "3"

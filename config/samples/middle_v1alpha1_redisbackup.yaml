@@ -1,0 +1,7 @@
+apiVersion: middle.alauda.cn/v1alpha1
+kind: RedisBackup
+metadata:
+  name: redisbackup-sample
+spec:
+  # Add fields here
+  foo: bar
