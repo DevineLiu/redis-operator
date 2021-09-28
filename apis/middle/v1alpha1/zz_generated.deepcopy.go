@@ -305,8 +305,6 @@ func (in *RedisFailoverStatus) DeepCopyInto(out *RedisFailoverStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.LastUpdateTime.DeepCopyInto(&out.LastUpdateTime)
-	in.LastTransitionTime.DeepCopyInto(&out.LastTransitionTime)
 	out.Instance = in.Instance
 	out.Master = in.Master
 }

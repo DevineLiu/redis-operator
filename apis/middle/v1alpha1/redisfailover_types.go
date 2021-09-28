@@ -143,10 +143,6 @@ type RedisRestore struct {
 type RedisFailoverStatus struct {
 	Conditions []Condition `json:"conditions,omitempty"`
 	// The last time this condition was updated.
-	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
-	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-	Message            string      `json:"message,omitempty"`
 	// Creating, Pending, Fail, Ready
 	Phase string `json:"phase,omitempty"`
 

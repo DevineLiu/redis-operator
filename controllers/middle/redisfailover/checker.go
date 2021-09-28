@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
-	"github.com/DevineLiu/redis-operator/util"
+	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	v1 "k8s.io/api/core/v1"
 	"time"
 )
@@ -15,38 +15,65 @@ func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) err
 		r.Record.Event(rf, v1.EventTypeNormal, "WaitPodReady", "waiting for all redis pods ready")
 		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("waiting all redis instance ready")
 		rf.Status.SetWaitingPodReadyCondition("waiting pod ready")
-		r.StatusWriter.Update(context.TODO(), rf)
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
 	}
 
 	if err := r.RfChecker.CheckSentinelNumber(rf); err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		r.Record.Event(rf, v1.EventTypeWarning, "Error", err.Error())
 		return nil
 	}
 
 	//TODO auth impl
-	auth := util.AuthConfig{}
+	auth := util2.AuthConfig{}
 
 	nMasters, err := r.RfChecker.GetNumberMasters(rf, &auth)
 	if err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
+
 	}
 	switch nMasters {
 	case 0:
 		redisesIP, err := r.RfChecker.GetRedisesIPs(rf, &auth)
 		if err != nil {
+			rf.Status.SetFailedCondition(err.Error())
+			if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+				return err
+			}
 			return err
 		}
 		if len(redisesIP) == 1 {
 			if err := r.RfHealer.MakeMaster(redisesIP[0], &auth); err != nil {
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
 				return err
 			}
 			break
 		}
 		if _, err := r.RfChecker.GetMinimumRedisPodTime(rf); err != nil {
+			rf.Status.SetFailedCondition(err.Error())
+			if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+				return err
+			}
 			return err
 		}
 		if err := r.RfHealer.SetOldestAsMaster(rf, &auth); err != nil {
+			rf.Status.SetFailedCondition(err.Error())
+			if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+				return err
+			}
 			return err
 		}
 	case 1:
@@ -56,23 +83,43 @@ func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) err
 	}
 	master, err := r.RfChecker.GetMasterIP(rf, &auth)
 	if err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
 	}
 	if err := r.RfChecker.CheckAllSlavesFromMaster(master, rf, &auth); err != nil {
 		if err := r.RfHealer.SetMasterOnAll(master, rf, &auth); err != nil {
+			rf.Status.SetFailedCondition(err.Error())
+			if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+				return err
+			}
 			return err
 		}
 	}
 	if err = r.setRedisConfig(rf, &auth); err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
 	}
 	sentinels, err := r.RfChecker.GetSentinelsIPs(rf)
 	if err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
 	}
 	for _, sip := range sentinels {
 		if err := r.RfChecker.CheckSentinelMonitor(sip, master, &auth); err != nil {
 			if err := r.RfHealer.NewSentinelMonitor(sip, master, rf, &auth); err != nil {
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
 				return err
 			}
 		}
@@ -80,9 +127,17 @@ func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) err
 	for _, sip := range sentinels {
 		if err := r.RfChecker.CheckSentinelSlavesNumberInMemory(sip, rf, &auth); err != nil {
 			if err := r.RfHealer.RestoreSentinel(sip, &auth); err != nil {
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
 				return err
 			}
 			if err := r.waitRestoreSentinelSlavesOK(sip, rf, &auth); err != nil {
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
 				return err
 			}
 		}
@@ -90,18 +145,30 @@ func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) err
 	for _, sip := range sentinels {
 		if err := r.RfChecker.CheckSentinelNumberInMemory(sip, rf, &auth); err != nil {
 			if err := r.RfHealer.RestoreSentinel(sip, &auth); err != nil {
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
+				rf.Status.SetFailedCondition(err.Error())
+				if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+					return err
+				}
 				return err
 			}
 		}
 	}
 	if err = r.setSentinelConfig(rf, &auth, sentinels); err != nil {
+		rf.Status.SetFailedCondition(err.Error())
+		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
+			return err
+		}
 		return err
 	}
 
 	return nil
 }
 
-func (r *RedisFailoverHandler) setSentinelConfig(rf *middlev1alpha1.RedisFailover, auth *util.AuthConfig, sentinels []string) error {
+func (r *RedisFailoverHandler) setSentinelConfig(rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig, sentinels []string) error {
 	for _, sip := range sentinels {
 		if err := r.RfHealer.SetSentinelCustomConfig(sip, rf, auth); err != nil {
 			return err
@@ -110,7 +177,7 @@ func (r *RedisFailoverHandler) setSentinelConfig(rf *middlev1alpha1.RedisFailove
 	return nil
 }
 
-func (r *RedisFailoverHandler) setRedisConfig(rf *middlev1alpha1.RedisFailover, auth *util.AuthConfig) error {
+func (r *RedisFailoverHandler) setRedisConfig(rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
 	redises, err := r.RfChecker.GetRedisesIPs(rf, auth)
 	if err != nil {
 		return err
@@ -126,7 +193,7 @@ func (r *RedisFailoverHandler) setRedisConfig(rf *middlev1alpha1.RedisFailover, 
 	return nil
 }
 
-func (r *RedisFailoverHandler) waitRestoreSentinelSlavesOK(sentinel string, rf *middlev1alpha1.RedisFailover, auth *util.AuthConfig) error {
+func (r *RedisFailoverHandler) waitRestoreSentinelSlavesOK(sentinel string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
 	timer := time.NewTimer(30 * time.Second)
 	defer timer.Stop()
 	for {

@@ -3,7 +3,7 @@ package service
 import (
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
-	"github.com/DevineLiu/redis-operator/util"
+	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +37,7 @@ type RedisFailoverKubeClient struct {
 
 func generateSelectorLabels(component, name string) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/part-of":   util.AppLabel,
+		"app.kubernetes.io/part-of":   util2.AppLabel,
 		"app.kubernetes.io/component": component,
 		"app.kubernetes.io/name":      name,
 	}
@@ -69,10 +69,10 @@ func (r RedisFailoverKubeClient) EnsureSentinelProbeConfigMap(rf *middlev1alpha1
 }
 
 func (r RedisFailoverKubeClient) EnsureSentinelDeployment(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
-	if err := r.ensurePodDisruptionBudget(rf, util.RedisName, util.RedisRoleName, labels, ownerRefs); err != nil {
+	if err := r.ensurePodDisruptionBudget(rf, util2.RedisName, util2.RedisRoleName, labels, ownerRefs); err != nil {
 		return err
 	}
-	oldSs, err := r.K8SService.GetDeployment(rf.Namespace, util.GetSentinelName(rf))
+	oldSs, err := r.K8SService.GetDeployment(rf.Namespace, util2.GetSentinelName(rf))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			deploy := generateSentinelDeployment(rf, labels, ownerRefs)
@@ -89,10 +89,10 @@ func (r RedisFailoverKubeClient) EnsureSentinelDeployment(rf *middlev1alpha1.Red
 }
 
 func (r RedisFailoverKubeClient) EnsureRedisStatefulSet(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
-	if err := r.ensurePodDisruptionBudget(rf, util.SentinelName, util.SentinelRoleName, labels, ownerRefs); err != nil {
+	if err := r.ensurePodDisruptionBudget(rf, util2.SentinelName, util2.SentinelRoleName, labels, ownerRefs); err != nil {
 		return err
 	}
-	oldSs, err := r.K8SService.GetStatefulSet(rf.Namespace, util.GetRedisName(rf))
+	oldSs, err := r.K8SService.GetStatefulSet(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
 		// If no resource we need to create.
 		if errors.IsNotFound(err) {
@@ -140,11 +140,11 @@ func (r RedisFailoverKubeClient) EnsureNotPresentRedisService(rf *middlev1alpha1
 }
 
 func (r RedisFailoverKubeClient) ensurePodDisruptionBudget(rf *middlev1alpha1.RedisFailover, name string, component string, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
-	name = util.GenerateName(name, rf.Name)
+	name = util2.GenerateName(name, rf.Name)
 	namespace := rf.Namespace
 
 	minAvailable := intstr.FromInt(2)
-	labels = util.MergeMap(labels, generateSelectorLabels(component, rf.Name))
+	labels = util2.MergeMap(labels, generateSelectorLabels(component, rf.Name))
 
 	pdb := generatePodDisruptionBudget(name, namespace, labels, ownerRefs, minAvailable)
 

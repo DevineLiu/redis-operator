@@ -10,7 +10,7 @@ import (
 
 	rediscli "github.com/go-redis/redis"
 
-	"github.com/DevineLiu/redis-operator/util"
+	"github.com/DevineLiu/redis-operator/controllers/util"
 )
 
 // Client defines the functions necessary to connect to redis and sentinel to get or set what we need

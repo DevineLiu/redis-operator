@@ -6,7 +6,7 @@ import (
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	"github.com/DevineLiu/redis-operator/controllers/middle/service"
-	util "github.com/DevineLiu/redis-operator/util"
+	util "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +21,7 @@ type RedisFailoverHandler struct {
 	RfServices   service.RedisFailoverClient
 	RfChecker    service.RedisFailoverCheck
 	RfHealer     service.RedisFailoverHeal
-	StatusWriter client.StatusWriter
+	StatusWriter client.Client
 }
 
 func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
@@ -38,7 +38,7 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 	if err := r.Ensure(rf, labels, oRefs); err != nil {
 		r.Record.Event(rf, v1.EventTypeWarning, "EnsureError", err.Error())
 		rf.Status.SetFailedCondition(err.Error())
-		r.StatusWriter.Update(context.TODO(), rf)
+		r.StatusWriter.Status().Update(context.TODO(), rf)
 		return err
 	}
 
@@ -48,12 +48,11 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("CheckAndHealError: %s", err.Error())
 		if rf.Status.IsLastConditionWaitingPodReady() {
 			r.Record.Event(rf, v1.EventTypeNormal, "CreateCluster", "CreateCluster for waiting pod ")
-			rf.Status.SetCreateCondition("redis server or sentinel server be removed by user, restart")
-			r.StatusWriter.Update(context.TODO(), rf)
+			r.StatusWriter.Status().Update(context.TODO(), rf)
 		} else {
 			r.Record.Event(rf, v1.EventTypeWarning, "CheckAndHealError", err.Error())
 			rf.Status.SetFailedCondition(err.Error())
-			r.StatusWriter.Update(context.TODO(), rf)
+			r.StatusWriter.Status().Update(context.TODO(), rf)
 			return err
 		}
 		return err
@@ -61,7 +60,7 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 	r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("SetReadyCondition...")
 	r.Record.Event(rf, v1.EventTypeNormal, "HEALTH", "Cluster Be Healthly")
 	rf.Status.SetReadyCondition("HEALTHLY")
-	r.StatusWriter.Update(context.TODO(), rf)
+	r.StatusWriter.Status().Update(context.TODO(), rf)
 	return nil
 }
 

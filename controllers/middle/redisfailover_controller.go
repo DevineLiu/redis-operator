@@ -56,7 +56,6 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	_ = log.FromContext(ctx)
 	instance := &middlev1alpha1.RedisFailover{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
-	fmt.Println(instance.Spec.Redis.Storage.PersistentVolumeClaim)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return reconcile.Result{}, nil
@@ -64,10 +63,15 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 	if err = r.Handler.Do(instance); err != nil {
+		if instance.Status.IsLastConditionWaitingPodReady() {
+			r.Logger.WithValues("namespace", instance.Namespace, "name", instance.Name).V(2).Info("waiting pod ready", err.Error())
+			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
 	if err = r.Handler.RfChecker.CheckSentinelReadyReplicas(instance); err != nil {
+
 		r.Logger.Info(err.Error())
 		return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 	}
@@ -108,7 +112,7 @@ func (r *RedisFailoverReconciler) SetupHandler(mgr ctrl.Manager) {
 		RfServices:   rfkc,
 		RfChecker:    rfchecker,
 		RfHealer:     rfhealer,
-		StatusWriter: r.Client.Status(),
+		StatusWriter: r.Client,
 	}
 
 }

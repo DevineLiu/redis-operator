@@ -67,11 +67,13 @@ func (rf *RedisFailoverStatus) SetScalingDownCondition(message string) {
 func (rf *RedisFailoverStatus) SetWaitingPodReadyCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionScaling, corev1.ConditionTrue, "WaitingPod", message)
 	rf.setRedisFailoverCondition(*c)
+
 }
 
 func (rf *RedisFailoverStatus) IsLastConditionWaitingPodReady() bool {
 	if len(rf.Conditions) > 0 {
 		rf.DescConditionsByTime()
+
 		codition := rf.Conditions[0]
 		return codition.Reason == "WaitingPod"
 	}

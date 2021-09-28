@@ -1,0 +1,53 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: redis-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: RedisBackup is the Schema for the redisbackups API
+      displayName: Redis Backup
+      kind: RedisBackup
+      name: redisbackups.middle.alauda.cn
+      version: v1alpha1
+    - description: RedisFailover is the Schema for the redisfailovers API
+      displayName: Redis Failover
+      kind: RedisFailover
+      name: redisfailovers.middle.alauda.cn
+      version: v1alpha1
+  description: redis-operator
+  displayName: redis-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - redis
+  links:
+  - name: Redis Operator
+    url: https://redis-operator.domain
+  maintainers:
+  - email: iamliuhongru@outlook.com
+    name: devineliu
+  maturity: alpha
+  provider:
+    name: alauda
+    url: alauda.cn
+  version: 0.0.0

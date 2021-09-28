@@ -2705,15 +2705,6 @@ spec:
                         type: integer
                     type: object
                 type: object
-              lastTransitionTime:
-                description: Last time the condition transitioned from one status
-                  to another.
-                format: date-time
-                type: string
-              lastUpdateTime:
-                description: The last time this condition was updated.
-                format: date-time
-                type: string
               master:
                 properties:
                   address:
@@ -2727,10 +2718,9 @@ spec:
                 - name
                 - status
                 type: object
-              message:
-                type: string
               phase:
-                description: Creating, Pending, Fail, Ready
+                description: The last time this condition was updated. Creating, Pending,
+                  Fail, Ready
                 type: string
               version:
                 type: string
