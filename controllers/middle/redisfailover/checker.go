@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) error {
+func (r *RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) error {
 	if err := r.RfChecker.CheckRedisNumber(rf); err != nil {
 		r.Record.Event(rf, v1.EventTypeNormal, "WaitPodReady", "waiting for all redis pods ready")
 		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("waiting all redis instance ready")
@@ -29,9 +29,16 @@ func (r RedisFailoverHandler) CheckAndHeal(rf *middlev1alpha1.RedisFailover) err
 		r.Record.Event(rf, v1.EventTypeWarning, "Error", err.Error())
 		return nil
 	}
-
-	//TODO auth impl
 	auth := util2.AuthConfig{}
+	if rf.Spec.Auth.SecretPath != "" {
+		secret, err := r.K8sService.GetSecret(rf.Namespace, rf.Spec.Auth.SecretPath)
+
+		if err != nil {
+			return err
+		}
+		passwd := string(secret.Data["password"])
+		auth = util2.AuthConfig{Password: passwd}
+	}
 
 	nMasters, err := r.RfChecker.GetNumberMasters(rf, &auth)
 	if err != nil {

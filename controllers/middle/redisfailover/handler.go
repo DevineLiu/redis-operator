@@ -14,14 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+
+
+
+
 type RedisFailoverHandler struct {
 	Logger       logr.Logger
 	Record       record.EventRecorder
-	K8sService   k8s.Service
+	K8sService   k8s.Services
 	RfServices   service.RedisFailoverClient
 	RfChecker    service.RedisFailoverCheck
 	RfHealer     service.RedisFailoverHeal
-	StatusWriter client.Client
+	StatusWriter StatusWriter
 }
 
 func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
@@ -38,7 +42,7 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 	if err := r.Ensure(rf, labels, oRefs); err != nil {
 		r.Record.Event(rf, v1.EventTypeWarning, "EnsureError", err.Error())
 		rf.Status.SetFailedCondition(err.Error())
-		r.StatusWriter.Status().Update(context.TODO(), rf)
+		r.StatusWriter.Update(rf)
 		return err
 	}
 
@@ -48,11 +52,10 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("CheckAndHealError: %s", err.Error())
 		if rf.Status.IsLastConditionWaitingPodReady() {
 			r.Record.Event(rf, v1.EventTypeNormal, "CreateCluster", "CreateCluster for waiting pod ")
-			r.StatusWriter.Status().Update(context.TODO(), rf)
 		} else {
 			r.Record.Event(rf, v1.EventTypeWarning, "CheckAndHealError", err.Error())
 			rf.Status.SetFailedCondition(err.Error())
-			r.StatusWriter.Status().Update(context.TODO(), rf)
+			r.StatusWriter.Update(rf)
 			return err
 		}
 		return err
@@ -60,7 +63,7 @@ func (r *RedisFailoverHandler) Do(rf *middlev1alpha1.RedisFailover) error {
 	r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("SetReadyCondition...")
 	r.Record.Event(rf, v1.EventTypeNormal, "HEALTH", "Cluster Be Healthly")
 	rf.Status.SetReadyCondition("HEALTHLY")
-	r.StatusWriter.Status().Update(context.TODO(), rf)
+	r.StatusWriter.Update(rf)
 	return nil
 }
 
@@ -80,4 +83,26 @@ func (r *RedisFailoverHandler) createOwnerReferences(rf *middlev1alpha1.RedisFai
 	return []metav1.OwnerReference{
 		*metav1.NewControllerRef(rf, rcvk),
 	}
+}
+
+type StatusWriter struct {
+	client.Client
+	Ctx context.Context
+}
+
+type StatusWrite interface {
+	Update(rf *middlev1alpha1.RedisFailover,opts ...client.UpdateOption) error
+	Patch(rf *middlev1alpha1.RedisFailover, patch client.Patch, opts ...client.PatchOption) error
+}
+
+
+
+func (s *StatusWriter) Patch(ctx context.Context, rf *middlev1alpha1.RedisFailover, patch client.Patch, opts ...client.PatchOption) error {
+	err := s.Status().Patch(s.Ctx,rf,patch,opts...)
+	return err
+}
+
+func (s *StatusWriter)Update(rf *middlev1alpha1.RedisFailover,opts ...client.UpdateOption) error  {
+	err :=s.Status().Update(s.Ctx,rf,opts...)
+	return err
 }

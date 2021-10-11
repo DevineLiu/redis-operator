@@ -11,7 +11,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type RedisFailoverClient interface {
@@ -26,6 +28,7 @@ type RedisFailoverClient interface {
 	EnsureRedisShutdownConfigMap(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error
 	EnsureRedisConfigMap(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error
 	EnsureNotPresentRedisService(rf *middlev1alpha1.RedisFailover) error
+	EnsurePasswordSecrets(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error
 }
 
 type RedisFailoverKubeClient struct {
@@ -137,6 +140,54 @@ func (r RedisFailoverKubeClient) EnsureRedisConfigMap(rf *middlev1alpha1.RedisFa
 
 func (r RedisFailoverKubeClient) EnsureNotPresentRedisService(rf *middlev1alpha1.RedisFailover) error {
 	panic("implement me")
+}
+
+func (r RedisFailoverKubeClient) EnsurePasswordSecrets(rf *middlev1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
+	secret, err := r.K8SService.GetSecret(rf.Namespace, rf.Spec.Auth.SecretPath)
+	if err != nil {
+		return err
+	}
+	passwd := secret.Data["password"]
+	if len(passwd) <= 0 {
+		return nil
+	}
+	now := time.Now()
+	if secretWithVersion, err := r.K8SService.GetSecret(rf.Namespace, util2.GetRedisSecretName(rf)); err != nil {
+
+		if errors.IsNotFound(err) {
+			secretWithVersion = &corev1.Secret{}
+			secretWithVersion.Name=util2.GetRedisSecretName(rf)
+			timestr := now.Format(time.RFC3339)
+			secretWithVersion.Data[timestr] = passwd
+			secretWithVersion.Labels=labels
+			r.K8SService.CreateSecret(rf.Namespace, secretWithVersion)
+		} else {
+			return err
+		}
+	} else {
+		lastData := []byte{}
+		initTime := time.Time{}
+		for k, v := range secretWithVersion.Data {
+			if time, err := time.Parse(time.RFC3339, k); err == nil {
+				if time.After(now) {
+					return errors.NewResourceExpired("now timestamp is large than secret's  timestamp")
+				}
+				if time.After(initTime) {
+					initTime = time
+					lastData = v
+				}
+			} else {
+				return err
+			}
+
+		}
+		if !reflect.DeepEqual(lastData, passwd) {
+			timestr := now.Format(time.RFC3339)
+			secretWithVersion.Data[timestr] = passwd
+			r.K8SService.UpdateSecret(rf.Namespace, secretWithVersion)
+		}
+	}
+	return err
 }
 
 func (r RedisFailoverKubeClient) ensurePodDisruptionBudget(rf *middlev1alpha1.RedisFailover, name string, component string, labels map[string]string, ownerRefs []metav1.OwnerReference) error {

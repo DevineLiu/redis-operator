@@ -168,7 +168,7 @@ func (r RedisFailoverChecker) GetNumberMasters(rf *v1alpha1.RedisFailover, auth 
 			nMasters++
 		}
 	}
-	return nMasters, nil
+	return nMasters, err
 }
 
 func (r RedisFailoverChecker) GetRedisesIPs(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) ([]string, error) {

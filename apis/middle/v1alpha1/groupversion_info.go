@@ -17,7 +17,7 @@ limitations under the License.
 // Package v1alpha1 contains API Schema definitions for the middle v1alpha1 API group
 //+kubebuilder:object:generate=true
 //+groupName=middle.alauda.cn
-//+kubebuilder:rbac:groups="",resources=pods;deployments;endpoints;persistentvolumeclaims;configmaps;services;events;namespaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=pods;deployments;endpoints;persistentvolumeclaims;configmaps;services;events;namespaces;secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments;replicasets;statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 

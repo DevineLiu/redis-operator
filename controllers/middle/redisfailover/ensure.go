@@ -24,6 +24,13 @@ func (r *RedisFailoverHandler) Ensure(rf *middlev1alpha1.RedisFailover, labels m
 	if err := r.RfServices.EnsureRedisShutdownConfigMap(rf, labels, own); err != nil {
 		return err
 	}
+
+	if rf.Spec.Auth.SecretPath != "" {
+		if err:= r.RfServices.EnsurePasswordSecrets(rf,labels, own); err!=nil {
+			return err
+		}
+	}
+
 	if err := r.RfServices.EnsureSentinelDeployment(rf, labels, own); err != nil {
 		return err
 	}

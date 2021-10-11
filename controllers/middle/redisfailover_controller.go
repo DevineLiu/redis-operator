@@ -62,6 +62,7 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return reconcile.Result{}, err
 	}
+
 	if err = r.Handler.Do(instance); err != nil {
 		if instance.Status.IsLastConditionWaitingPodReady() {
 			r.Logger.WithValues("namespace", instance.Namespace, "name", instance.Name).V(2).Info("waiting pod ready", err.Error())
@@ -105,6 +106,11 @@ func (r *RedisFailoverReconciler) SetupHandler(mgr ctrl.Manager) {
 	rfkc := service.NewRedisFailoverKubeClient(k8sService, r.Logger, r.Client.Status(), r.Record)
 	rfchecker := service.NewRedisFailoverChecker(k8sService, r.Logger, r.Client.Status(), r.Record, redisClient)
 	rfhealer := service.NewRedisFailoverHealer(k8sService, r.Logger, r.Client.Status(), r.Record, redisClient)
+	status := redisfailover.StatusWriter{
+		Client:r.Client,
+		Ctx: context.TODO(),
+	}
+
 	r.Handler = &redisfailover.RedisFailoverHandler{
 		Logger:       r.Logger,
 		Record:       r.Record,
@@ -112,7 +118,9 @@ func (r *RedisFailoverReconciler) SetupHandler(mgr ctrl.Manager) {
 		RfServices:   rfkc,
 		RfChecker:    rfchecker,
 		RfHealer:     rfhealer,
-		StatusWriter: r.Client,
+		StatusWriter: status,
 	}
 
 }
+
+

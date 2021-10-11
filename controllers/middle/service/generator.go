@@ -134,9 +134,6 @@ func generateSentinelConfigMap(rf *v1alpha1.RedisFailover, labels map[string]str
 sentinel down-after-milliseconds mymaster 1000
 sentinel failover-timeout mymaster 3000
 sentinel parallel-syncs mymaster 2`
-	if rf.Spec.Auth.SecretPath != "" {
-		// TODO support passwd
-	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -397,7 +394,7 @@ func generateRedisStatefulSet(rf *v1alpha1.RedisFailover, labels map[string]stri
 
 	probeArg := "redis-cli -h $(hostname)"
 	if spec.Auth.SecretPath != "" {
-		// TODO auth
+		probeArg = fmt.Sprintf("%s -a ${%s} ping", probeArg,redisPasswordEnv)
 	} else {
 		probeArg = fmt.Sprintf("%s ping", probeArg)
 	}
@@ -496,6 +493,19 @@ func generateRedisStatefulSet(rf *v1alpha1.RedisFailover, labels map[string]stri
 		}
 
 	}
+	if rf.Spec.Auth.SecretPath != "" {
+		ss.Spec.Template.Spec.Containers[0].Env = append(ss.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name: redisPasswordEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: rf.Spec.Auth.SecretPath,
+					},
+					Key: "password",
+				},
+			},
+		})
+	}
 
 	if rf.Spec.Redis.Exporter.Enabled {
 		exporter := createRedisExporterContainer(rf)
@@ -562,9 +572,6 @@ func getRedisCommand(rf *v1alpha1.RedisFailover) []string {
 		"--save 900 1",
 		"--save 300 10",
 	}
-
-	// TODO auth
-
 	return cmds
 }
 

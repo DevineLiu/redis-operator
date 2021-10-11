@@ -42,6 +42,10 @@ func GetRedisNodePortSvc(rf *v1alpha1.RedisFailover) string {
 	return GenerateName("-redis-node-port", rf.Name)
 }
 
+func GetRedisSecretName(rf *v1alpha1.RedisFailover) string {
+	return GenerateName("-passwd-readonly", rf.Name)
+}
+
 func GetSentinelReadinessConfigmap(rf *v1alpha1.RedisFailover) string {
 	return GenerateName("-sentinel-readiness", rf.Name)
 }
@@ -52,3 +56,5 @@ func GetRedisShutdownConfigMapName(rf *v1alpha1.RedisFailover) string {
 	}
 	return GetRedisShutdownName(rf)
 }
+
+
