@@ -26,4 +26,13 @@ resources:
   kind: RedisBackup
   path: github.com/DevineLiu/redis-operator/apis/middle/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: alauda.cn
+  group: middle
+  kind: RedisProxy
+  path: github.com/DevineLiu/redis-operator/apis/middle/v1alpha1
+  version: v1alpha1
 version: "3"

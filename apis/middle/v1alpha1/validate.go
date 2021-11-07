@@ -70,3 +70,7 @@ func defaultSentinelResource() v1.ResourceRequirements {
 		},
 	}
 }
+
+func (r *RedisProxy) Validate() error {
+	return nil
+}

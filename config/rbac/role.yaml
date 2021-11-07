@@ -16,6 +16,7 @@ rules:
   - namespaces
   - persistentvolumeclaims
   - pods
+  - secrets
   - services
   verbs:
   - create
@@ -87,6 +88,32 @@ rules:
   - middle.alauda.cn
   resources:
   - redisfailovers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - middle.alauda.cn
+  resources:
+  - redisproxies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - middle.alauda.cn
+  resources:
+  - redisproxies/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - middle.alauda.cn
+  resources:
+  - redisproxies/status
   verbs:
   - get
   - patch

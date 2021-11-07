@@ -205,3 +205,7 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+.PHONY: add-api
+add-api:
+	operator-sdk create api --group middle --version v1alpha1 --kind RedisProxy  --resource --controller

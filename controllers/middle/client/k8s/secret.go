@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -10,13 +11,13 @@ import (
 )
 
 type Secret interface {
-	GetSecret(namespace string,name string) (*v1.Secret,error)
+	GetSecret(namespace string, name string) (*v1.Secret, error)
 	CreateSecret(namespace string, secret *v1.Secret) error
 	UpdateSecret(namespace string, secret *v1.Secret) error
 	CreateOrUpdateSecret(namespace string, secret *v1.Secret) error
-	DeleteSecret(namespace string,name string) error
+	DeleteSecret(namespace string, name string) error
 	ListSecret(namespace string) (*v1.SecretList, error)
-	CreateIfNotExistsSecret(namespace string,secret *v1.Secret) error
+	CreateIfNotExistsSecret(namespace string, secret *v1.Secret) error
 }
 
 func (s *SecretOption) GetSecret(namespace string, name string) (*v1.Secret, error) {
@@ -25,7 +26,7 @@ func (s *SecretOption) GetSecret(namespace string, name string) (*v1.Secret, err
 		Name:      name,
 		Namespace: namespace,
 	}, secret)
-	return secret,err
+	return secret, err
 }
 
 func (s *SecretOption) CreateSecret(namespace string, secret *v1.Secret) error {
@@ -39,17 +40,16 @@ func (s *SecretOption) UpdateSecret(namespace string, secret *v1.Secret) error {
 }
 
 func (s *SecretOption) CreateOrUpdateSecret(namespace string, secret *v1.Secret) error {
-	secret,err := s.GetSecret(namespace,secret.Name)
+	secrets, err := s.GetSecret(namespace, secret.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return s.CreateSecret(namespace, secret)
 		}
 		return err
 	}
-	secret.ResourceVersion = secret.ResourceVersion
+	secret.ResourceVersion = secrets.ResourceVersion
 	return s.UpdateSecret(namespace, secret)
 }
-
 
 func (s *SecretOption) DeleteSecret(namespace string, name string) error {
 	secret := &v1.Secret{}
@@ -59,7 +59,7 @@ func (s *SecretOption) DeleteSecret(namespace string, name string) error {
 	}, secret); err != nil {
 		return err
 	}
-	return s.client.Delete(context.TODO(),secret)
+	return s.client.Delete(context.TODO(), secret)
 }
 
 func (s *SecretOption) ListSecret(namespace string) (*v1.SecretList, error) {
@@ -68,7 +68,7 @@ func (s *SecretOption) ListSecret(namespace string) (*v1.SecretList, error) {
 		Namespace: namespace,
 	}
 	err := s.client.List(context.TODO(), secret, listOps)
-	return secret,err
+	return secret, err
 }
 
 func (s *SecretOption) CreateIfNotExistsSecret(namespace string, secret *v1.Secret) error {

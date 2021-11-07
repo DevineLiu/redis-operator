@@ -78,19 +78,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.RedisFailoverReconciler{
+	// if err = (&controllers.RedisFailoverReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Scheme: mgr.GetScheme(),
+	// 	Logger: mgr.GetLogger(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "RedisFailover")
+	// 	os.Exit(1)
+	// }
+	// if err = (&controllers.RedisBackupReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Scheme: mgr.GetScheme(),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "RedisBackup")
+	// 	os.Exit(1)
+	// }
+	if err = (&controllers.RedisProxyReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Logger: mgr.GetLogger(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RedisFailover")
-		os.Exit(1)
-	}
-	if err = (&controllers.RedisBackupReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RedisBackup")
+		setupLog.Error(err, "unable to create controller", "controller", "RedisProxy")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

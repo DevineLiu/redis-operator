@@ -1,0 +1,10 @@
+apiVersion: middle.alauda.cn/v1alpha1
+kind: RedisProxy
+metadata:
+  name: redisproxy-sample
+  namespace: hongru-redis
+spec:
+  proxyInfo:
+    architecture: cluster
+    instanceName: test
+  

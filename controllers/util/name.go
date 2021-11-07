@@ -8,7 +8,10 @@ import (
 const (
 	BaseName               = "redis"
 	SentinelName           = "-sentinel"
+	ProxyName  = "-proxy"
+	ProxyNodeportName  = "-proxyn"
 	SentinelRoleName       = "sentinel"
+	ProxyRoleName              = "redis-proxy"
 	SentinelConfigFileName = "sentinel.conf"
 	RedisConfigFileName    = "redis.conf"
 	RedisName              = "-redisdb"
@@ -29,6 +32,15 @@ func GetRedisName(rf *v1alpha1.RedisFailover) string {
 func GetSentinelName(rf *v1alpha1.RedisFailover) string {
 	return GenerateName(SentinelName, rf.Name)
 }
+
+func GetRedisProxyName(rp *v1alpha1.RedisProxy) string {
+	return  GenerateName(ProxyName,rp.Name)
+}
+
+func GetRedisProxyNodePortName(rp *v1alpha1.RedisProxy) string {
+	return  GenerateName(ProxyNodeportName,rp.Name)
+}
+
 
 func GetRedisShutdownName(rf *v1alpha1.RedisFailover) string {
 	return GenerateName(RedisShutdownName, rf.Name)
