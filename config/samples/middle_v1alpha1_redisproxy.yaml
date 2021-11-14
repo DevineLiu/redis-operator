@@ -6,5 +6,8 @@ metadata:
 spec:
   proxyInfo:
     architecture: cluster
-    instanceName: test
-  
+    instanceName: proxy-test
+  image: 192.168.132.175:60080/middleware/redis-proxy:acp-main.2111052130
+  auth:
+    secretPath: redis-proxy-test-password-1636642369
+

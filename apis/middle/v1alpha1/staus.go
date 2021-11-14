@@ -49,6 +49,12 @@ func (rf *RedisFailoverStatus) DescConditionsByTime() {
 	})
 }
 
+func (rp *RedisProxyStatus) DescConditionsByTime() {
+	sort.Slice(rp.Conditions, func(i, j int) bool {
+		return rp.Conditions[i].LastUpdateAt.After(rp.Conditions[j].LastUpdateAt.Time)
+	})
+}
+
 func (rf *RedisFailoverStatus) SetScalingUpCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionScaling, corev1.ConditionTrue, "Scaling up", message)
 	rf.setRedisFailoverCondition(*c)
@@ -80,11 +86,30 @@ func (rf *RedisFailoverStatus) IsLastConditionWaitingPodReady() bool {
 	return false
 }
 
+func (rp *RedisProxyStatus) IsLastConditionUpgrading() bool {
+	if len(rp.Conditions) > 0 {
+		rp.DescConditionsByTime()
+
+		codition := rp.Conditions[0]
+		return codition.Reason == "RedisProxy Upgrading"
+	}
+	return false
+}
+
+
+
 func (rf *RedisFailoverStatus) SetUpgradingCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionUpgrading, corev1.ConditionTrue,
 		"RedisFailover upgrading", message)
 	rf.setRedisFailoverCondition(*c)
 }
+
+func (rp *RedisProxyStatus) SetUpgradingCondition(message string) {
+	c := newRedisFailoverCondition(RedisFailoverConditionUpgrading, corev1.ConditionTrue,
+		"RedisProxy Upgrading", message)
+	rp.setRedisProxyCondition(*c)
+}
+
 
 func (rf *RedisFailoverStatus) SetUpdatingCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionUpdating, corev1.ConditionTrue,
@@ -95,6 +120,11 @@ func (rf *RedisFailoverStatus) SetUpdatingCondition(message string) {
 func (rf *RedisFailoverStatus) SetReadyCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionHealthy, corev1.ConditionTrue, "RedisFailover available", message)
 	rf.setRedisFailoverCondition(*c)
+}
+
+func (rp *RedisProxyStatus) SetReadyCondition(message string) {
+	c := newRedisFailoverCondition(RedisFailoverConditionHealthy, corev1.ConditionTrue, "Redis Ready", message)
+	rp.setRedisProxyCondition(*c)
 }
 
 func (rf *RedisFailoverStatus) SetFailedCondition(message string) {
@@ -129,6 +159,25 @@ func (rf *RedisFailoverStatus) setRedisFailoverCondition(c Condition) {
 	}
 }
 
+func (rp *RedisProxyStatus) setRedisProxyCondition(c Condition) {
+	pos, cp := getRedisProxyCondition(rp, c.Type)
+	if cp != nil &&
+		cp.Status == c.Status && cp.Reason == c.Reason && cp.Message == c.Message {
+		now := time.Now()
+		nowString := now.Format(time.RFC3339)
+		rp.Conditions[pos].LastUpdateAt = metav1.Time{Time: now}
+		rp.Conditions[pos].LastUpdateTime = nowString
+		return
+	}
+
+	if cp != nil {
+		rp.Conditions[pos] = c
+	} else {
+		rp.Conditions = append(rp.Conditions, c)
+	}
+}
+
+
 func getRedisFailoverCondition(status *RedisFailoverStatus, t ConditionType) (int, *Condition) {
 	for i, c := range status.Conditions {
 		if t == c.Type {
@@ -137,6 +186,16 @@ func getRedisFailoverCondition(status *RedisFailoverStatus, t ConditionType) (in
 	}
 	return -1, nil
 }
+
+func getRedisProxyCondition(status *RedisProxyStatus, t ConditionType) (int, *Condition) {
+	for i, c := range status.Conditions {
+		if t == c.Type {
+			return i, &c
+		}
+	}
+	return -1, nil
+}
+
 
 func newRedisFailoverCondition(condType ConditionType, status corev1.ConditionStatus, reason, message string) *Condition {
 	now := time.Now()

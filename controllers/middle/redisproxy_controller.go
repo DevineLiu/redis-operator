@@ -87,11 +87,15 @@ func (r *RedisProxyReconciler) SetupHandler(mgr ctrl.Manager) {
 	k8sService := k8s.New(mgr.GetClient(), r.Logger)
 	//redisClient := redis.New()
 	rpkc := proxyservice.NewRedisProxyKubeClient(k8sService, r.Logger, r.Client.Status(), r.Record)
-
+	status := redisproxy.StatusWriter{
+		Client:r.Client,
+		Ctx: context.TODO(),
+	}
 	r.Handler = &redisproxy.RedisProxyHandler{
 		Logger:     r.Logger,
 		Record:     r.Record,
 		K8sService: k8sService,
 		RpServices: rpkc,
+		StatusWriter: status,
 	}
 }

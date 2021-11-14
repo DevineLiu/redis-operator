@@ -1,10 +1,12 @@
 package proxyservice
 
 import (
+	"context"
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -49,7 +51,15 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 		}
 		return err
 	}
-	_ = old_deploy
+	if rp.Status.IsLastConditionUpgrading() {
+		_,err :=r.K8SService.RolloutRestartDeployment(old_deploy.Namespace,old_deploy.Name)
+		if err!=nil{
+			return err
+		}
+		rp.Status.SetReadyCondition("ready")
+		r.StatusWriter.Update(context.TODO(),rp)
+	}
+
 	return nil
 }
 
@@ -64,8 +74,30 @@ func (r RedisProxyKubeClient) EnsureRedisProxyConfigMap(rp *middlev1alpha1.Redis
 		 password = string(passwd)
 	}
 	cm := generateRedisProxyConfigMap(rp, labels, ownrf,password)
+	old_cm,err := r.K8SService.GetConfigMap(cm.Namespace,cm.Name)
+	if err!= nil {
+		if errors.IsNotFound(err) {
+			return r.K8SService.CreateIfNotExistsConfigMap(rp.Namespace, cm)
+		}
+		return err
+	}
+	if ShoudUpdateConfigmap(cm,old_cm) {
+		rp.Status.SetUpgradingCondition("upgrading configmap")
+		r.StatusWriter.Update(context.TODO(),rp)
+		r.K8SService.UpdateConfigMap(cm.Namespace,cm)
+
+	}
 	return r.K8SService.CreateIfNotExistsConfigMap(rp.Namespace, cm)
 }
+
+
+func ShoudUpdateConfigmap(cm *v1.ConfigMap ,old_cm  *v1.ConfigMap ) bool {
+		if cm.Data[util2.ProxyConfigFileName]==old_cm.Data[util2.ProxyConfigFileName] {
+			return false
+		}
+		return true
+}
+
 
 func (r RedisProxyKubeClient) EnsureRedisProxyNodePortService(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) error {
 	svc := generateRedisProxyNodePortService(rp, labels, ownrf)

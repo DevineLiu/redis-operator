@@ -14,6 +14,7 @@ const (
 	defaultRedisNumber    = 3
 	defaultSentinelNumber = 3
 	defaultRedisImage     = "redis:5.0.4-alpine"
+	defaultRedisProxyImage    = "build-harbor.alauda.cn/middleware/redis-proxy:acp-main.2111052130"
 	// TODO : set default Slave
 	defaultSlavePriority = "1"
 )
@@ -71,6 +72,39 @@ func defaultSentinelResource() v1.ResourceRequirements {
 	}
 }
 
-func (r *RedisProxy) Validate() error {
+func (rp *RedisProxy) Validate() error {
+	if rp.Spec.Replicas < 2 {
+		rp.Spec.Replicas = 2
+	}
+	if rp.Spec.Resources.Size() == 0 {
+		rp.Spec.Resources = defaultSentinelResource()
+	}
+	if rp.Spec.Image == "" {
+		rp.Spec.Image = defaultRedisProxyImage
+	}
+
+
+	if rp.Spec.ProxyInfo.WorkerThreads<1{
+		rp.Spec.ProxyInfo.WorkerThreads=4
+	}
+	if rp.Spec.ProxyInfo.ClientTimeout==0 {
+		rp.Spec.ProxyInfo.ClientTimeout= 120
+	}
+	if rp.Spec.ProxyInfo.Architecture=="" {
+		rp.Spec.ProxyInfo.Architecture="cluster"
+	}
 	return nil
+}
+
+func defaultProxyResource() v1.ResourceRequirements {
+	return v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("500m"),
+			v1.ResourceMemory: resource.MustParse("500Mi"),
+		},
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1000m"),
+			v1.ResourceMemory: resource.MustParse("1024Mi"),
+		},
+	}
 }
