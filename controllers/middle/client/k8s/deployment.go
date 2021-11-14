@@ -2,6 +2,9 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -30,6 +33,7 @@ type Deployment interface {
 	DeleteDeployment(namespace string, name string) error
 	// ListDeployments get set of deployment on a given namespace
 	ListDeployments(namespace string) (*appsv1.DeploymentList, error)
+	RolloutRestartDeployment(namespace, name string) (*appsv1.Deployment, error)
 }
 
 // DeploymentOption is the deployment client interface implementation that using API calls to kubernetes.
@@ -57,6 +61,41 @@ func (d *DeploymentOption) GetDeployment(namespace, name string) (*appsv1.Deploy
 	if err != nil {
 		return nil, err
 	}
+	return deployment, err
+}
+
+func (d *DeploymentOption) RolloutRestartDeployment(namespace, name string) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{}
+	err := d.client.Get(context.TODO(), types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, deployment)
+	if err != nil {
+		return nil, err
+	}
+	date := time.Now().Format(time.RFC3339)
+	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = date
+	old_deployment := &appsv1.Deployment{}
+	err = d.client.Get(context.TODO(), types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, old_deployment)
+	if err != nil {
+		return nil, err
+	}
+	currentPodJSON, err := json.Marshal(old_deployment)
+	if err != nil {
+		return nil, err
+	}
+	updatedPodJSON, err := json.Marshal(deployment)
+	if err != nil {
+		return nil, err
+	}
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(currentPodJSON, updatedPodJSON, appsv1.Deployment{})
+	if err != nil {
+		return nil, err
+	}
+	err = d.client.Patch(context.TODO(),old_deployment,client.RawPatch(types.StrategicMergePatchType, patchBytes))
 	return deployment, err
 }
 

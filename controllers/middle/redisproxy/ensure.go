@@ -15,9 +15,9 @@ func (r *RedisProxyHandler) Ensure(rp *middlev1alpha1.RedisProxy, labels map[str
 	if err := r.RpServices.EnsureRedisProxyConfigMap(rp, labels, own); err != nil {
 		return err
 	}
-	if err := r.RpServices.EnsureRedisProxyProbeConfigMap(rp, labels, own); err != nil {
-		return err
-	}
+	//if err := r.RpServices.EnsureRedisProxyProbeConfigMap(rp, labels, own); err != nil {
+	//	return err
+	//}
 	if err := r.RpServices.EnsureRedisProxyDeployment(rp, labels, own); err != nil {
 		return err
 	}
