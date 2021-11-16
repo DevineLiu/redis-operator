@@ -73,8 +73,8 @@ func defaultSentinelResource() v1.ResourceRequirements {
 }
 
 func (rp *RedisProxy) Validate() error {
-	if rp.Spec.Replicas < 2 {
-		rp.Spec.Replicas = 2
+	if rp.Spec.Replicas <= 0 {
+		rp.Spec.Replicas = 1
 	}
 	if rp.Spec.Resources.Size() == 0 {
 		rp.Spec.Resources = defaultSentinelResource()
