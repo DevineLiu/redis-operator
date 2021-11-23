@@ -40,7 +40,7 @@ func NewRedisProxyKubeClient(k8SService k8s.Services, log logr.Logger, status cl
 func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) error {
 	svc := generateRedisProxyService(rp, labels, ownrf)
 	if old_svc, err := r.K8SService.GetService(svc.Namespace, svc.Name); err == nil {
-		if ShouldUpdateService(old_svc, svc) {
+		if ShouldReplaceService(old_svc, svc) {
 			if err := r.K8SService.DeleteService(svc.Namespace, svc.Name); err != nil {
 				return err
 			}
@@ -92,8 +92,8 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 	return nil
 }
 
-func ShouldUpdateService(old_service *corev1.Service, new_service *corev1.Service) bool {
-	return old_service.Spec.Ports[0].Port != new_service.Spec.Ports[0].Port
+func ShouldReplaceService(old_service *corev1.Service, new_service *corev1.Service) bool {
+	return old_service.Spec.Ports[0].TargetPort != new_service.Spec.Ports[0].TargetPort
 }
 
 func ShouldAllUpdateDeployement(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
