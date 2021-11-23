@@ -44,6 +44,8 @@ func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisPr
 				return err
 			}
 		}
+	} else {
+		r.Logger.Info("Get Service error: %s", err.Error())
 	}
 
 	return r.K8SService.CreateIfNotExistsService(rp.Namespace, svc)
@@ -92,7 +94,7 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 }
 
 func ShouldReplaceService(old_service *corev1.Service, new_service *corev1.Service) bool {
-	if *old_service.Labels["v1alpha1.redis.middleware.alauda.io/router"] == "true" {
+	if old_service.ObjectMeta.Labels["v1alpha1.redis.middleware.alauda.io/router"] == "true" {
 		return true
 	}
 	return false
