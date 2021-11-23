@@ -41,7 +41,7 @@ func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisPr
 	svc := generateRedisProxyService(rp, labels, ownrf)
 	if old_svc, err := r.K8SService.GetService(svc.Namespace, svc.Name); err == nil {
 		if ShouldUpdateService(old_svc, svc) {
-			if err := r.K8SService.UpdateService(svc.Namespace, svc); err != nil {
+			if err := r.K8SService.DeleteService(svc.Namespace, svc.Name); err != nil {
 				return err
 			}
 		}
@@ -72,7 +72,10 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 
 	if ShouldAllUpdateDeployement(rp, current_deploy) {
 		deploy := generateRedisProxyDeployment(rp, labels, ownrf)
-		if err := r.K8SService.UpdateDeployment(rp.Namespace, deploy); err != nil {
+		if err := r.K8SService.DeleteDeployment(rp.Namespace, current_deploy.Name); err != nil {
+			return err
+		}
+		if err := r.K8SService.CreateDeployment(rp.Namespace, deploy); err != nil {
 			return err
 		}
 	}
