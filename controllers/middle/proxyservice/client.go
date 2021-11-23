@@ -2,7 +2,6 @@ package proxyservice
 
 import (
 	"context"
-	"strings"
 
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
@@ -70,7 +69,7 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 		}
 	}
 
-	if ShouldAllUpdateDeployement(rp, current_deploy) {
+	if ShouldReplaceDeployment(rp, current_deploy) {
 		deploy := generateRedisProxyDeployment(rp, labels, ownrf)
 		if err := r.K8SService.DeleteDeployment(rp.Namespace, current_deploy.Name); err != nil {
 			return err
@@ -93,16 +92,18 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 }
 
 func ShouldReplaceService(old_service *corev1.Service, new_service *corev1.Service) bool {
-	return old_service.Spec.Ports[0].TargetPort != new_service.Spec.Ports[0].TargetPort
-}
-
-func ShouldAllUpdateDeployement(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
-	image1 := strings.Split(deploy.Spec.Template.Spec.Containers[0].Image, "/")
-	image2 := strings.Split(rp.Spec.Image, "/")
-	if image1[len(image1)-1] != image2[len(image2)-1] {
+	if *old_service.Labels["v1alpha1.redis.middleware.alauda.io/router"] == "true" {
 		return true
 	}
 	return false
+}
+
+func ShouldReplaceDeployment(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
+	if deploy.Labels["v1alpha1.redis.middleware.alauda.io/router"] == "true" {
+		return true
+	}
+	return false
+
 }
 
 func ShouldUpdateDeployemnt(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
