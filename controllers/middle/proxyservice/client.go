@@ -69,6 +69,14 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 			return err
 		}
 	}
+
+	if ShouldAllUpdateDeployement(rp, current_deploy) {
+		deploy := generateRedisProxyDeployment(rp, labels, ownrf)
+		if err := r.K8SService.UpdateDeployment(rp.Namespace, deploy); err != nil {
+			return err
+		}
+	}
+
 	if rp.Status.IsLastConditionUpgrading() {
 		_, err := r.K8SService.RolloutRestartDeployment(current_deploy.Namespace, current_deploy.Name)
 		if err != nil {
@@ -85,15 +93,20 @@ func ShouldUpdateService(old_service *corev1.Service, new_service *corev1.Servic
 	return old_service.Spec.Ports[0].Port != new_service.Spec.Ports[0].Port
 }
 
-func ShouldUpdateDeployemnt(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
-	if deploy.Spec.Replicas != &rp.Spec.Replicas {
-		return true
-	}
+func ShouldAllUpdateDeployement(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
 	image1 := strings.Split(deploy.Spec.Template.Spec.Containers[0].Image, "/")
 	image2 := strings.Split(rp.Spec.Image, "/")
 	if image1[len(image1)-1] != image2[len(image2)-1] {
 		return true
 	}
+	return false
+}
+
+func ShouldUpdateDeployemnt(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
+	if deploy.Spec.Replicas != &rp.Spec.Replicas {
+		return true
+	}
+
 	if result := rp.Spec.Resources.Requests.Cpu().Cmp(*deploy.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu()); result != 0 {
 		return true
 	}
