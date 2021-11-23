@@ -2,12 +2,15 @@ package proxyservice
 
 import (
 	"context"
+	"reflect"
+	"strings"
 
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +40,15 @@ func NewRedisProxyKubeClient(k8SService k8s.Services, log logr.Logger, status cl
 
 func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) error {
 	svc := generateRedisProxyService(rp, labels, ownrf)
+	if old_svc, err := r.K8SService.GetService(svc.Namespace, svc.Name); err != nil {
+		if ShouldUpdateService(old_svc, svc) {
+			if err := r.K8SService.UpdateService(svc.Namespace, svc); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	return r.K8SService.CreateIfNotExistsService(rp.Namespace, svc)
 }
 
@@ -71,8 +83,17 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 	return nil
 }
 
+func ShouldUpdateService(old_service *corev1.Service, new_service *corev1.Service) bool {
+	return !reflect.DeepEqual(old_service.Spec.Ports, new_service.Spec.Ports)
+}
+
 func ShouldUpdateDeployemnt(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
 	if deploy.Spec.Replicas != &rp.Spec.Replicas {
+		return true
+	}
+	image1 := strings.Split(deploy.Spec.Template.Spec.Containers[0].Image, "/")
+	image2 := strings.Split(rp.Spec.Image, "/")
+	if image1[len(image1)-1] != image2[len(image2)-1] {
 		return true
 	}
 	if result := rp.Spec.Resources.Requests.Cpu().Cmp(*deploy.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu()); result != 0 {
