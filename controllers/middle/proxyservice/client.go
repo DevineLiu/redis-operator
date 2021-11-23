@@ -2,7 +2,6 @@ package proxyservice
 
 import (
 	"context"
-	"reflect"
 	"strings"
 
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
@@ -46,7 +45,6 @@ func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisPr
 				return err
 			}
 		}
-
 	}
 
 	return r.K8SService.CreateIfNotExistsService(rp.Namespace, svc)
@@ -84,7 +82,7 @@ func (r RedisProxyKubeClient) EnsureRedisProxyDeployment(rp *middlev1alpha1.Redi
 }
 
 func ShouldUpdateService(old_service *corev1.Service, new_service *corev1.Service) bool {
-	return !reflect.DeepEqual(old_service.Spec.Ports, new_service.Spec.Ports)
+	return old_service.Spec.Ports[0].Port != new_service.Spec.Ports[0].Port
 }
 
 func ShouldUpdateDeployemnt(rp *middlev1alpha1.RedisProxy, deploy *appv1.Deployment) bool {
