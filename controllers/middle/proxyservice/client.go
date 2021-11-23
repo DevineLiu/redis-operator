@@ -39,7 +39,7 @@ func NewRedisProxyKubeClient(k8SService k8s.Services, log logr.Logger, status cl
 
 func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) error {
 	svc := generateRedisProxyService(rp, labels, ownrf)
-	if old_svc, err := r.K8SService.GetService(svc.Namespace, svc.Name); err != nil {
+	if old_svc, err := r.K8SService.GetService(svc.Namespace, svc.Name); err == nil {
 		if ShouldUpdateService(old_svc, svc) {
 			if err := r.K8SService.UpdateService(svc.Namespace, svc); err != nil {
 				return err
