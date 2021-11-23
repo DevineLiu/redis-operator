@@ -45,7 +45,7 @@ func (r RedisProxyKubeClient) EnsureRedisProxyService(rp *middlev1alpha1.RedisPr
 			}
 		}
 	} else {
-		r.Logger.Info("Get Service error: %s", err.Error())
+		r.Logger.WithValues("namespace", rp.Namespace, "name", rp.Name).V(2).Info("GetService Error:", err.Error())
 	}
 
 	return r.K8SService.CreateIfNotExistsService(rp.Namespace, svc)
