@@ -3,8 +3,9 @@ package k8s
 import (
 	"context"
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"github.com/go-logr/logr"
 
@@ -74,6 +75,9 @@ func (d *DeploymentOption) RolloutRestartDeployment(namespace, name string) (*ap
 		return nil, err
 	}
 	date := time.Now().Format(time.RFC3339)
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
 	deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = date
 	old_deployment := &appsv1.Deployment{}
 	err = d.client.Get(context.TODO(), types.NamespacedName{
@@ -95,7 +99,7 @@ func (d *DeploymentOption) RolloutRestartDeployment(namespace, name string) (*ap
 	if err != nil {
 		return nil, err
 	}
-	err = d.client.Patch(context.TODO(),old_deployment,client.RawPatch(types.StrategicMergePatchType, patchBytes))
+	err = d.client.Patch(context.TODO(), old_deployment, client.RawPatch(types.StrategicMergePatchType, patchBytes))
 	return deployment, err
 }
 
