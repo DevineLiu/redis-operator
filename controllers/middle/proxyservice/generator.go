@@ -23,6 +23,7 @@ func generateRedisProxyDeployment(rp *middlev1alpha1.RedisProxy, labels map[stri
 			Namespace:       namespace,
 			Labels:          labels,
 			OwnerReferences: ownrf,
+			Annotations:     rp.Annotations,
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &rp.Spec.Replicas,

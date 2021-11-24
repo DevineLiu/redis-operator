@@ -92,6 +92,9 @@ func (rp *RedisProxy) Validate() error {
 	if rp.Spec.ProxyInfo.Architecture == "" {
 		rp.Spec.ProxyInfo.Architecture = "cluster"
 	}
+	if rp.Spec.Auth == AuthSettings{nil} {
+		rp.Spec.Auth = AuthSettings{SecretPath:""} 
+	}
 	return nil
 }
 
