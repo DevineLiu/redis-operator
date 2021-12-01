@@ -11,10 +11,10 @@ import (
 const (
 	maxNameLength = 48
 
-	defaultRedisNumber    = 3
-	defaultSentinelNumber = 3
-	defaultRedisImage     = "redis:5.0.4-alpine"
-	defaultRedisProxyImage    = "build-harbor.alauda.cn/middleware/redis-proxy:acp-main.2111052130"
+	defaultRedisNumber     = 3
+	defaultSentinelNumber  = 3
+	defaultRedisImage      = "redis:5.0.4-alpine"
+	defaultRedisProxyImage = "build-harbor.alauda.cn/middleware/redis-proxy:v3.7.0"
 	// TODO : set default Slave
 	defaultSlavePriority = "1"
 )
@@ -73,8 +73,8 @@ func defaultSentinelResource() v1.ResourceRequirements {
 }
 
 func (rp *RedisProxy) Validate() error {
-	if rp.Spec.Replicas < 2 {
-		rp.Spec.Replicas = 2
+	if rp.Spec.Replicas <= 0 {
+		rp.Spec.Replicas = 1
 	}
 	if rp.Spec.Resources.Size() == 0 {
 		rp.Spec.Resources = defaultSentinelResource()
@@ -83,15 +83,14 @@ func (rp *RedisProxy) Validate() error {
 		rp.Spec.Image = defaultRedisProxyImage
 	}
 
-
-	if rp.Spec.ProxyInfo.WorkerThreads<1{
-		rp.Spec.ProxyInfo.WorkerThreads=4
+	if rp.Spec.ProxyInfo.WorkerThreads < 1 {
+		rp.Spec.ProxyInfo.WorkerThreads = 4
 	}
-	if rp.Spec.ProxyInfo.ClientTimeout==0 {
-		rp.Spec.ProxyInfo.ClientTimeout= 120
+	if rp.Spec.ProxyInfo.ClientTimeout == 0 {
+		rp.Spec.ProxyInfo.ClientTimeout = 120
 	}
-	if rp.Spec.ProxyInfo.Architecture=="" {
-		rp.Spec.ProxyInfo.Architecture="cluster"
+	if rp.Spec.ProxyInfo.Architecture == "" {
+		rp.Spec.ProxyInfo.Architecture = "cluster"
 	}
 	return nil
 }

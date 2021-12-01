@@ -2,6 +2,7 @@ package proxyservice
 
 import (
 	"fmt"
+
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	v1 "k8s.io/api/apps/v1"
@@ -12,17 +13,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-
-func generateRedisProxyDeployment(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference)  *v1.Deployment {
+func generateRedisProxyDeployment(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) *v1.Deployment {
 	name := util2.GetRedisProxyName(rp)
 	namespace := rp.Namespace
 	labels = util2.MergeMap(labels, generateSelectorLabels(util2.ProxyRoleName, rp.Name))
-	return &v1.Deployment{
+	deploy := &v1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       namespace,
 			Labels:          labels,
 			OwnerReferences: ownrf,
+			Annotations:     rp.Annotations,
 		},
 		Spec: v1.DeploymentSpec{
 			Replicas: &rp.Spec.Replicas,
@@ -61,7 +62,7 @@ func generateRedisProxyDeployment(rp *middlev1alpha1.RedisProxy, labels map[stri
 									MountPath: "/predixy",
 								},
 							},
-							Command: getProxyCommand(),
+							Command:   getProxyCommand(),
 							Resources: rp.Spec.Resources,
 						},
 					},
@@ -81,7 +82,21 @@ func generateRedisProxyDeployment(rp *middlev1alpha1.RedisProxy, labels map[stri
 			},
 		},
 	}
+	if rp.Spec.Auth.SecretPath != "" {
+		deploy.Spec.Template.Spec.Containers[0].Env = append(deploy.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name: "REDIS_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: rp.Spec.Auth.SecretPath,
+					},
+					Key: "password",
+				},
+			},
+		})
+	}
 
+	return deploy
 }
 
 func generateRedisProxyService(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference) *corev1.Service {
@@ -126,21 +141,20 @@ func generateRedisProxyNodePortService(rp *middlev1alpha1.RedisProxy, labels map
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
-			Type:      corev1.ServiceTypeNodePort,
+			Type:     corev1.ServiceTypeNodePort,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "redis",
 					Port:       6379,
 					TargetPort: sentinelTargetPort,
 					Protocol:   "TCP",
-
 				},
 			},
 		},
 	}
 }
 
-func generateRedisProxyConfigMap(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference,password string) *corev1.ConfigMap {
+func generateRedisProxyConfigMap(rp *middlev1alpha1.RedisProxy, labels map[string]string, ownrf []metav1.OwnerReference, password string) *corev1.ConfigMap {
 	name := util2.GetRedisProxyName(rp)
 	namespace := rp.Namespace
 	labels = util2.MergeMap(labels, generateSelectorLabels(util2.ProxyName, rp.Name))
@@ -173,9 +187,9 @@ ClusterServerPool {
 }
 `
 
-	ConfigMapContent := fmt.Sprintf(ProxyConfigMapContent,rp.Spec.ProxyInfo.WorkerThreads,rp.Name,
-	rp.Spec.ProxyInfo.ClientTimeout,password,password, rp.Spec.ProxyInfo.InstanceName,
-	rp.Spec.ProxyInfo.InstanceName,rp.Spec.ProxyInfo.InstanceName)
+	ConfigMapContent := fmt.Sprintf(ProxyConfigMapContent, rp.Spec.ProxyInfo.WorkerThreads, rp.Name,
+		rp.Spec.ProxyInfo.ClientTimeout, password, password, rp.Spec.ProxyInfo.InstanceName,
+		rp.Spec.ProxyInfo.InstanceName, rp.Spec.ProxyInfo.InstanceName)
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -228,7 +242,6 @@ func getAffinity(affinity *corev1.Affinity, labels map[string]string) *corev1.Af
 		},
 	}
 }
-
 
 func getSecurityContext(secctx *corev1.PodSecurityContext) *corev1.PodSecurityContext {
 	if secctx != nil {
