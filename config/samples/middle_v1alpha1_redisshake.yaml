@@ -6,20 +6,15 @@ metadata:
 spec:
   # Add fields here
   modelType: sync
-  #tlsEnable: true
-  #TlsSkipVerify: true
-  # keyExists: rewrite
+  keyExists: rewrite
+  image: devineliu/redis-shake:v1
   resumeFromBreakPoint: true
   source: 
-    type: cluster
+    type: sentinel
     clusterName: r1
-    passwordSecret: redis-passwd
   target: 
-    type: cluster
-    address:
-      - 10.3.2.47:6379
-      - 10.3.1.88:6379
-      - 10.3.2.79:6379
+    type: sentinel
+    clusterName: r2
 
 
 

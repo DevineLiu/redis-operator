@@ -61,7 +61,7 @@ sed -i s/{target_passwd}/${TARGET_REDIS_PASSWORD}/g  /config/%s
 		port = "6379"
 	}
 	if rs.Spec.SourceInfo.Type == middlev1alpha1.Sentinel && rs.Spec.SourceInfo.ClusterName != "" {
-		ip = fmt.Sprintf("rfr-%s", rs.Spec.SourceInfo.ClusterName)
+		ip = fmt.Sprintf("rfr-%s-read-write", rs.Spec.SourceInfo.ClusterName)
 		port = "6379"
 	}
 
@@ -128,15 +128,15 @@ func generateRedisShakeConfigMap(rs *middlev1alpha1.RedisShake, labels map[strin
 	}
 
 	if rs.Spec.SourceInfo.Type == middlev1alpha1.Sentinel && rs.Spec.SourceInfo.ClusterName != "" {
-		source_addr = fmt.Sprintf("master@rfs-%s:26379", rs.Spec.SourceInfo.ClusterName)
+		source_addr = fmt.Sprintf("mymaster@rfs-%s:26379", rs.Spec.SourceInfo.ClusterName)
 	}
 
 	if rs.Spec.TargetInfo.Type == middlev1alpha1.Cluster && rs.Spec.TargetInfo.ClusterName != "" {
-		target_addr = fmt.Sprintf("%s-0:6379;%s-1:6379;%s-0:6379", rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName)
+		target_addr = fmt.Sprintf("%s-0:6379;%s-1:6379;%s-0:6379", rs.Spec.TargetInfo.ClusterName, rs.Spec.TargetInfo.ClusterName, rs.Spec.TargetInfo.ClusterName)
 	}
 
 	if rs.Spec.TargetInfo.Type == middlev1alpha1.Sentinel && rs.Spec.TargetInfo.ClusterName != "" {
-		target_addr = fmt.Sprintf("master@rfs-%s:26379", rs.Spec.SourceInfo.ClusterName)
+		target_addr = fmt.Sprintf("mymaster@rfs-%s:26379", rs.Spec.TargetInfo.ClusterName)
 	}
 
 	if rs.Spec.TargetInfo != nil {

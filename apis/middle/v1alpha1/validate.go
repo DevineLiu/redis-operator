@@ -15,7 +15,7 @@ const (
 	defaultSentinelNumber  = 3
 	defaultRedisImage      = "build-harbor.alauda.cn/3rdparty/redis:5.0-alpine"
 	defaultRedisProxyImage = "build-harbor.alauda.cn/middleware/redis-proxy:v3.7.0"
-	defaultRedisShakeImage = "build-harbor.alauda.cn/middleware/redis-shake:release-3.7.2112101430"
+	defaultRedisShakeImage = "build-harbor.alauda.cn/middleware/redis-shake:v3.7.0"
 	// TODO : set default Slave
 	defaultSlavePriority = "1"
 )
