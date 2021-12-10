@@ -132,7 +132,7 @@ func generateRedisShakeConfigMap(rs *middlev1alpha1.RedisShake, labels map[strin
 	}
 
 	if rs.Spec.TargetInfo.Type == middlev1alpha1.Cluster && rs.Spec.TargetInfo.ClusterName != "" {
-		target_addr = fmt.Sprintf("master@%s-0:6379;master@%s-1:6379;master@%s-0:6379", rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName)
+		target_addr = fmt.Sprintf("%s-0:6379;%s-1:6379;%s-0:6379", rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName, rs.Spec.SourceInfo.ClusterName)
 	}
 
 	if rs.Spec.TargetInfo.Type == middlev1alpha1.Sentinel && rs.Spec.TargetInfo.ClusterName != "" {
