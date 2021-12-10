@@ -2,18 +2,22 @@ package util
 
 import (
 	"fmt"
+
 	"github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 )
 
 const (
 	BaseName               = "redis"
 	SentinelName           = "-sentinel"
-	ProxyName  = "proxy"
-	ProxyNodeportName  = "proxyn"
+	ProxyName              = "proxy"
+	ShakeName              = "shake"
+	ProxyNodeportName      = "proxyn"
 	SentinelRoleName       = "sentinel"
-	ProxyRoleName              = "redis-proxy"
+	ProxyRoleName          = "redis-proxy"
+	ShakeRoleName          = "redis-shake"
 	SentinelConfigFileName = "sentinel.conf"
-	ProxyConfigFileName = "proxy.conf"
+	ProxyConfigFileName    = "proxy.conf"
+	ShakeConfigFileName    = "redis-shake.conf"
 	RedisConfigFileName    = "redis.conf"
 	RedisName              = "-redisdb"
 	RedisShutdownName      = "r-s"
@@ -27,7 +31,7 @@ func GenerateName(typeName, metaName string) string {
 }
 
 func GenerateProxyName(typeName, metaName string) string {
-	return fmt.Sprintf("%s-%s",metaName, typeName )
+	return fmt.Sprintf("%s-%s", metaName, typeName)
 }
 
 func GetRedisName(rf *v1alpha1.RedisFailover) string {
@@ -39,13 +43,20 @@ func GetSentinelName(rf *v1alpha1.RedisFailover) string {
 }
 
 func GetRedisProxyName(rp *v1alpha1.RedisProxy) string {
-	return  GenerateProxyName(ProxyName,rp.Name)
+	return GenerateProxyName(ProxyName, rp.Name)
+}
+
+func GetRedisShakeName(rs *v1alpha1.RedisShake) string {
+	return GenerateProxyName(ShakeName, rs.Name)
+}
+
+func GetRedisShakeInitScriptName(rs *v1alpha1.RedisShake) string {
+	return GenerateProxyName(ShakeName+"-init", rs.Name)
 }
 
 func GetRedisProxyNodePortName(rp *v1alpha1.RedisProxy) string {
-	return  GenerateProxyName(ProxyNodeportName,rp.Name)
+	return GenerateProxyName(ProxyNodeportName, rp.Name)
 }
-
 
 func GetRedisShutdownName(rf *v1alpha1.RedisFailover) string {
 	return GenerateName(RedisShutdownName, rf.Name)
@@ -73,5 +84,3 @@ func GetRedisShutdownConfigMapName(rf *v1alpha1.RedisFailover) string {
 	}
 	return GetRedisShutdownName(rf)
 }
-
-

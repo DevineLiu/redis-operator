@@ -1,0 +1,25 @@
+apiVersion: middle.alauda.cn/v1alpha1
+kind: RedisShake
+metadata:
+  name: redisshake-sample
+  namespace: hongru-redis
+spec:
+  # Add fields here
+  modelType: sync
+  #tlsEnable: true
+  #TlsSkipVerify: true
+  # keyExists: rewrite
+  resumeFromBreakPoint: true
+  source: 
+    type: cluster
+    clusterName: r1
+    passwordSecret: redis-passwd
+  target: 
+    type: cluster
+    address:
+      - 10.3.2.47:6379
+      - 10.3.1.88:6379
+      - 10.3.2.79:6379
+
+
+

@@ -20,38 +20,34 @@ import (
 	"context"
 	"time"
 
-	"github.com/DevineLiu/redis-operator/controllers/middle/proxyservice"
-
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
+	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
+	"github.com/DevineLiu/redis-operator/controllers/middle/redisshake"
+	"github.com/DevineLiu/redis-operator/controllers/middle/shakeservice"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
-	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
-	"github.com/DevineLiu/redis-operator/controllers/middle/redisproxy"
-	"github.com/go-logr/logr"
 )
 
-// RedisProxyReconciler reconciles a RedisProxy object
-type RedisProxyReconciler struct {
+// RedisShakeReconciler reconciles a RedisShake object
+type RedisShakeReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
 	Logger  logr.Logger
 	Record  record.EventRecorder
-	Handler *redisproxy.RedisProxyHandler
+	Handler *redisshake.RedisShakeHandler
 }
 
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisproxies,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisproxies/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisproxies/finalizers,verbs=update
+//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisshakes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisshakes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisshakes/finalizers,verbs=update
 
-func (r *RedisProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	instance := &middlev1alpha1.RedisProxy{}
+func (r *RedisShakeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	instance := &middlev1alpha1.RedisShake{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -60,40 +56,41 @@ func (r *RedisProxyReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 	if err = r.Handler.Do(instance); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: time.Duration(10) * time.Second}, err
 	}
+
 	return ctrl.Result{RequeueAfter: time.Duration(ReconcileTime) * time.Second}, nil
 }
 
+func (r *RedisShakeReconciler) SetupEventRecord(mgr ctrl.Manager) {
+	r.Record = mgr.GetEventRecorderFor("redis-shake")
+}
+
 // SetupWithManager sets up the controller with the Manager.
-func (r *RedisProxyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *RedisShakeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.SetupEventRecord(mgr)
 	r.SetupHandler(mgr)
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&middlev1alpha1.RedisProxy{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.Service{}).
+		For(&middlev1alpha1.RedisShake{}).
+		//	Owns(&corev1.ConfigMap{}).
+		//	Owns(&appsv1.Deployment{}).
+		//	Owns(&corev1.Service{}).
 		Complete(r)
 }
 
-func (r *RedisProxyReconciler) SetupEventRecord(mgr ctrl.Manager) {
-	r.Record = mgr.GetEventRecorderFor("redis-proxy")
-}
-
-func (r *RedisProxyReconciler) SetupHandler(mgr ctrl.Manager) {
+func (r *RedisShakeReconciler) SetupHandler(mgr ctrl.Manager) {
 	k8sService := k8s.New(mgr.GetClient(), r.Logger)
 	//redisClient := redis.New()
-	rpkc := proxyservice.NewRedisProxyKubeClient(k8sService, r.Logger, r.Client.Status(), r.Record)
-	status := redisproxy.StatusWriter{
+	rskc := shakeservice.NewRedisShakeKubeClient(k8sService, r.Logger, r.Client.Status(), r.Record)
+	status := redisshake.StatusWriter{
 		Client: r.Client,
 		Ctx:    context.TODO(),
 	}
-	r.Handler = &redisproxy.RedisProxyHandler{
+	r.Handler = &redisshake.RedisShakeHandler{
 		Logger:       r.Logger,
 		Record:       r.Record,
 		K8sService:   k8sService,
-		RpServices:   rpkc,
+		RsServices:   rskc,
 		StatusWriter: status,
 	}
 }
