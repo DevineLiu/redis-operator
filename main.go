@@ -94,14 +94,14 @@ func main() {
 	// 	os.Exit(1)
 	// }
 
-	// if err = (&middlecontrollers.RedisProxyReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// 	Logger: mgr.GetLogger(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "RedisProxy")
-	// 	os.Exit(1)
-	// }
+	if err = (&middlecontrollers.RedisProxyReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Logger: mgr.GetLogger(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RedisProxy")
+		os.Exit(1)
+	}
 
 	if err = (&middlecontrollers.RedisShakeReconciler{
 		Client: mgr.GetClient(),
