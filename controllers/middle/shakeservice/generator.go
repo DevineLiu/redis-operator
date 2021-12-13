@@ -173,6 +173,7 @@ source.tls_skip_verify = %t
 source.rdb.input =
 source.rdb.parallel = 0
 source.rdb.special_cloud = 
+target.auth_type = auth
 target.type = %s
 target.address = %s
 target.password_raw = {target_passwd}
