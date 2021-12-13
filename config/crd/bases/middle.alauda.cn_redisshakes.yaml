@@ -861,12 +861,6 @@ spec:
                         type: array
                     type: object
                 type: object
-              auth:
-                description: AuthSettings contains settings about auth
-                properties:
-                  secretPath:
-                    type: string
-                type: object
               bigKeyThreshold:
                 format: int64
                 type: integer

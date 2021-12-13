@@ -866,7 +866,6 @@ func (in *RedisShakeSpec) DeepCopyInto(out *RedisShakeSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
-	out.Auth = in.Auth
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
 		*out = make([]v1.Toleration, len(*in))
