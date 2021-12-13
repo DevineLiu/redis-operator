@@ -354,7 +354,7 @@ func generateRedisShakeDeployment(rs *middlev1alpha1.RedisShake, labels map[stri
 	}
 
 	if rs.Spec.SourceInfo.PasswordSecret != "" {
-		deploy.Spec.Template.Spec.InitContainers[0].Env = append(deploy.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		deploy.Spec.Template.Spec.InitContainers[0].Env = append(deploy.Spec.Template.Spec.InitContainers[0].Env, corev1.EnvVar{
 			Name: "SOURCE_REDIS_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -368,7 +368,7 @@ func generateRedisShakeDeployment(rs *middlev1alpha1.RedisShake, labels map[stri
 	}
 
 	if rs.Spec.TargetInfo.PasswordSecret != "" {
-		deploy.Spec.Template.Spec.InitContainers[0].Env = append(deploy.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		deploy.Spec.Template.Spec.InitContainers[0].Env = append(deploy.Spec.Template.Spec.InitContainers[0].Env, corev1.EnvVar{
 			Name: "TARGET_REDIS_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
