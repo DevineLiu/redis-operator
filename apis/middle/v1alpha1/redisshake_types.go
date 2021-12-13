@@ -48,7 +48,6 @@ type RedisShakeSpec struct {
 	NodeSelector         map[string]string             `json:"nodeSelector,omitempty"`
 	SecurityContext      *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
 	ImagePullSecrets     []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	Auth                 AuthSettings                  `json:"auth,omitempty"`
 	Tolerations          []corev1.Toleration           `json:"tolerations,omitempty"`
 	PodAnnotations       map[string]string             `json:"podAnnotations,omitempty"`
 	ServiceAnnotations   map[string]string             `json:"serviceAnnotations,omitempty"`
