@@ -56,13 +56,36 @@ sed -i s/{target_passwd}/${TARGET_REDIS_PASSWORD}/g  /config/%s
 		port = strings.Split(addr, ":")[1]
 
 	}
-	if rs.Spec.SourceInfo.Type == middlev1alpha1.Cluster && rs.Spec.SourceInfo.ClusterName != "" {
+	if rs.Spec.TargetInfo.Type == middlev1alpha1.Cluster && rs.Spec.TargetInfo.ClusterName != "" {
 		ip = fmt.Sprintf("%s-0", rs.Spec.SourceInfo.ClusterName)
 		port = "6379"
 	}
-	if rs.Spec.SourceInfo.Type == middlev1alpha1.Sentinel && rs.Spec.SourceInfo.ClusterName != "" {
+	if rs.Spec.TargetInfo.Type == middlev1alpha1.Sentinel && rs.Spec.TargetInfo.ClusterName != "" {
 		ip = fmt.Sprintf("rfr-%s-read-write", rs.Spec.SourceInfo.ClusterName)
 		port = "6379"
+	}
+	cluster_extend_content := ""
+	if rs.Spec.TargetInfo.Type == middlev1alpha1.Cluster && len(rs.Spec.TargetInfo.Address) > 0 {
+
+		for i := 0; i < len(rs.Spec.TargetInfo.Address); i++ {
+			cluster_address := rs.Spec.TargetInfo.Address[i]
+			cluster_ip := strings.Split(cluster_address, ":")[0]
+			cluster_port := strings.Split(cluster_address, ":")[1]
+			cluster_extend_content_sub := `
+if [[  "${TARGET_REDIS_PASSWORD}" ]]; then
+	MasterList=$(redis-cli -h %s -p %s   -a ${TARGET_REDIS_PASSWORD} -c cluster nodes|grep master |awk -F " " '{print $2}' |awk -F "@" '{print $1}'|sed -n '1h;1!H;${g;s/\n/;/g;p;}')
+else
+	MasterList=$(redis-cli -h %s -p %s   -c cluster nodes|grep master |awk -F " " '{print $2}' |awk -F "@" '{print $1}'|sed -n '1h;1!H;${g;s/\n/;/g;p;}')
+fi
+
+echo $MasterList
+
+if [[  "$MasterList" ]]; then
+	sed  -i  s/^target.address.*/target.address\ =\ ${MasterList}/g /config/%s
+fi
+`
+			cluster_extend_content += fmt.Sprintf(cluster_extend_content_sub, cluster_ip, cluster_port, cluster_ip, cluster_port, util2.ShakeConfigFileName)
+		}
 	}
 
 	extend_content := `
@@ -78,6 +101,13 @@ if [[ -z "${TARGET_REDIS_PASSWORD}" ]]; then
 	echo "redis-shake block by flag"
 		exit 1
 	fi
+	master_ip=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
+	master_port=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f2)
+	redisShakeFlag=$(redis-cli -c  -h ${master_ip} -p ${master_port}  get redisShakeStopFlag|grep true)
+	if [  "$redisShakeFlag" ] ; then
+	echo "redis-shake block by flag"
+		exit 1
+	fi
 else 
 	redisShakeFlag=$(redis-cli -h %s -p %s -a ${TARGET_REDIS_PASSWORD} get redisShakeStopFlag|grep true)
 	if [ "$redisShakeFlag" ] ; then
@@ -89,12 +119,19 @@ else
 	echo "redis-shake block by flag"
 		exit 1
 	fi
+	master_ip=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
+	master_port=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f2)
+	redisShakeFlag=$(redis-cli -c -a ${TARGET_REDIS_PASSWORD}  -h ${master_ip} -p ${master_port}  get redisShakeStopFlag|grep true)
+	if [  "$redisShakeFlag" ] ; then
+	echo "redis-shake block by flag"
+		exit 1
+	fi
 fi
 exit 0
 `
-	extend_content = fmt.Sprintf(extend_content, ip, port, ip, port, ip, port, ip, port)
+	extend_content = fmt.Sprintf(extend_content, ip, port, ip, port, ip, port, ip, port, ip, port, ip, port, ip, port, ip, port)
 	initScriptContent = fmt.Sprintf(initScriptContent, util2.ShakeConfigFileName, util2.ShakeConfigFileName, util2.ShakeConfigFileName, util2.ShakeConfigFileName)
-	cmContent := initScriptContent + extend_content
+	cmContent := initScriptContent + cluster_extend_content + extend_content
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,

@@ -25,6 +25,7 @@ import (
 	"github.com/DevineLiu/redis-operator/controllers/middle/redisshake"
 	"github.com/DevineLiu/redis-operator/controllers/middle/shakeservice"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -72,9 +73,9 @@ func (r *RedisShakeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.SetupHandler(mgr)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&middlev1alpha1.RedisShake{}).
-		//	Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.ConfigMap{}).
 		//	Owns(&appsv1.Deployment{}).
-		//	Owns(&corev1.Service{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
 
