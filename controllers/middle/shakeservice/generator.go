@@ -73,12 +73,14 @@ sed -i s/{target_passwd}/${TARGET_REDIS_PASSWORD}/g  /config/%s
 			cluster_port := strings.Split(cluster_address, ":")[1]
 			cluster_extend_content_sub := `
 if [[  "${TARGET_REDIS_PASSWORD}" ]]; then
+	echo "start get cluster master "
 	MasterList=$(redis-cli -h %s -p %s   -a ${TARGET_REDIS_PASSWORD} -c cluster nodes|grep master |awk -F " " '{print $2}' |awk -F "@" '{print $1}'|sed -n '1h;1!H;${g;s/\n/;/g;p;}')
 else
+	echo "start get cluster master "
 	MasterList=$(redis-cli -h %s -p %s   -c cluster nodes|grep master |awk -F " " '{print $2}' |awk -F "@" '{print $1}'|sed -n '1h;1!H;${g;s/\n/;/g;p;}')
 fi
 
-echo $MasterList
+echo "Masrter List: "$MasterList
 
 if [[  "$MasterList" ]]; then
 	sed  -i  s/^target.address.*/target.address\ =\ ${MasterList}/g /config/%s
@@ -98,14 +100,14 @@ if [[ -z "${TARGET_REDIS_PASSWORD}" ]]; then
 	fi
 	redisShakeFlag=$(redis-cli -c  -h %s -p %s  get redisShakeStopFlag|grep true)
 	if [  "$redisShakeFlag" ] ; then
-	echo "redis-shake block by flag"
+		echo "redis-shake block by flag"
 		exit 1
 	fi
 	master_ip=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
 	master_port=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f2)
-	redisShakeFlag=$(redis-cli -c  -h ${master_ip} -p ${master_port}  get redisShakeStopFlag|grep true)
+	redisShakeFlag=$(redis-cli -c  -h $master_ip -p $master_port  get redisShakeStopFlag|grep true)
 	if [  "$redisShakeFlag" ] ; then
-	echo "redis-shake block by flag"
+		echo "redis-shake block by flag"
 		exit 1
 	fi
 else 
@@ -114,16 +116,16 @@ else
 		echo "redis-shake block by flag"
 		exit 1
 	fi
-	redisShakeFlag=$(redis-cli -c  -h %s -p %s -a ${TARGET_REDIS_PASSWORD} get redisShakeStopFlag|grep true)
+	redisShakeFlag=$(redis-cli  -h %s -p %s -a ${TARGET_REDIS_PASSWORD} get redisShakeStopFlag|grep true)
 	if [  "$redisShakeFlag" ] ; then
-	echo "redis-shake block by flag"
+		echo "redis-shake block by flag"
 		exit 1
 	fi
 	master_ip=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f1)
 	master_port=$(redis-cli -h %s -p %s --csv SENTINEL get-master-addr-by-name mymaster | tr ',' ' ' | tr -d '\"' |cut -d' ' -f2)
-	redisShakeFlag=$(redis-cli -c -a ${TARGET_REDIS_PASSWORD}  -h ${master_ip} -p ${master_port}  get redisShakeStopFlag|grep true)
+	redisShakeFlag=$(redis-cli -a ${TARGET_REDIS_PASSWORD}  -h $master_ip -p $master_port  get redisShakeStopFlag|grep true)
 	if [  "$redisShakeFlag" ] ; then
-	echo "redis-shake block by flag"
+		echo "redis-shake block by flag"
 		exit 1
 	fi
 fi
