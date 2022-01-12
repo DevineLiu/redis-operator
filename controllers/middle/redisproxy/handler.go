@@ -16,10 +16,10 @@ import (
 )
 
 type RedisProxyHandler struct {
-	Logger     logr.Logger
-	Record     record.EventRecorder
-	K8sService k8s.Services
-	RpServices proxyservice.RedisProxyClient
+	Logger       logr.Logger
+	Record       record.EventRecorder
+	K8sService   k8s.Services
+	RpServices   proxyservice.RedisProxyClient
 	StatusWriter StatusWriter
 }
 
@@ -59,25 +59,22 @@ func (r *RedisProxyHandler) getLabels(rp *middlev1alpha1.RedisProxy) map[string]
 	return util.MergeMap(defaultLabels, dynLabels, rp.Labels)
 }
 
-
 type StatusWriter struct {
 	client.Client
 	Ctx context.Context
 }
 
 type StatusWrite interface {
-	Update(rf *middlev1alpha1.RedisProxy,opts ...client.UpdateOption) error
+	Update(rf *middlev1alpha1.RedisProxy, opts ...client.UpdateOption) error
 	Patch(rf *middlev1alpha1.RedisProxy, patch client.Patch, opts ...client.PatchOption) error
 }
 
-
-
-func (s *StatusWriter) Patch( rf *middlev1alpha1.RedisProxy, patch client.Patch, opts ...client.PatchOption) error {
-	err := s.Status().Patch(s.Ctx,rf,patch,opts...)
+func (s *StatusWriter) Patch(rf *middlev1alpha1.RedisProxy, patch client.Patch, opts ...client.PatchOption) error {
+	err := s.Status().Patch(s.Ctx, rf, patch, opts...)
 	return err
 }
 
-func (s *StatusWriter)Update(rf *middlev1alpha1.RedisProxy,opts ...client.UpdateOption) error  {
-	err :=s.Status().Update(s.Ctx,rf,opts...)
+func (s *StatusWriter) Update(rf *middlev1alpha1.RedisProxy, opts ...client.UpdateOption) error {
+	err := s.Status().Update(s.Ctx, rf, opts...)
 	return err
 }

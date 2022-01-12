@@ -14,10 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-
-
-
-
 type RedisFailoverHandler struct {
 	Logger       logr.Logger
 	Record       record.EventRecorder
@@ -91,18 +87,16 @@ type StatusWriter struct {
 }
 
 type StatusWrite interface {
-	Update(rf *middlev1alpha1.RedisFailover,opts ...client.UpdateOption) error
+	Update(rf *middlev1alpha1.RedisFailover, opts ...client.UpdateOption) error
 	Patch(rf *middlev1alpha1.RedisFailover, patch client.Patch, opts ...client.PatchOption) error
 }
 
-
-
 func (s *StatusWriter) Patch(ctx context.Context, rf *middlev1alpha1.RedisFailover, patch client.Patch, opts ...client.PatchOption) error {
-	err := s.Status().Patch(s.Ctx,rf,patch,opts...)
+	err := s.Status().Patch(s.Ctx, rf, patch, opts...)
 	return err
 }
 
-func (s *StatusWriter)Update(rf *middlev1alpha1.RedisFailover,opts ...client.UpdateOption) error  {
-	err :=s.Status().Update(s.Ctx,rf,opts...)
+func (s *StatusWriter) Update(rf *middlev1alpha1.RedisFailover, opts ...client.UpdateOption) error {
+	err := s.Status().Update(s.Ctx, rf, opts...)
 	return err
 }

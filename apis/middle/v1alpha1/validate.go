@@ -13,8 +13,9 @@ const (
 
 	defaultRedisNumber     = 3
 	defaultSentinelNumber  = 3
-	defaultRedisImage      = "redis:5.0.4-alpine"
+	defaultRedisImage      = "build-harbor.alauda.cn/3rdparty/redis:5.0-alpine"
 	defaultRedisProxyImage = "build-harbor.alauda.cn/middleware/redis-proxy:v3.7.0"
+	defaultRedisShakeImage = "build-harbor.alauda.cn/middleware/redis-shake:v3.7.0"
 	// TODO : set default Slave
 	defaultSlavePriority = "1"
 )
@@ -106,4 +107,21 @@ func defaultProxyResource() v1.ResourceRequirements {
 			v1.ResourceMemory: resource.MustParse("1024Mi"),
 		},
 	}
+}
+
+func (rs *RedisShake) Validate() error {
+	if rs.Spec.Image == "" {
+		rs.Spec.Image = defaultRedisShakeImage
+	}
+	if rs.Spec.Resources.Size() == 0 {
+		rs.Spec.Resources = defaultProxyResource()
+	}
+	if rs.Spec.Replicas != 1 {
+		rs.Spec.Replicas = 1
+	}
+	if rs.Spec.ModelType == nil {
+		*rs.Spec.ModelType = Sync
+	}
+
+	return nil
 }

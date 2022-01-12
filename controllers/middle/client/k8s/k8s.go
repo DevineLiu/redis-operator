@@ -38,6 +38,6 @@ func New(kubecli client.Client, logger logr.Logger) Services {
 		NameSpaces:          NewNameSpaces(logger),
 		Deployment:          NewDeployment(kubecli, logger),
 		StatefulSet:         NewStatefulSet(kubecli, logger),
-		Secret:              NewSecret(kubecli,logger),
+		Secret:              NewSecret(kubecli, logger),
 	}
 }

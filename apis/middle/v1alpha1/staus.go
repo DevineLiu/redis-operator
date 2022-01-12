@@ -96,8 +96,6 @@ func (rp *RedisProxyStatus) IsLastConditionUpgrading() bool {
 	return false
 }
 
-
-
 func (rf *RedisFailoverStatus) SetUpgradingCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionUpgrading, corev1.ConditionTrue,
 		"RedisFailover upgrading", message)
@@ -109,7 +107,6 @@ func (rp *RedisProxyStatus) SetUpgradingCondition(message string) {
 		"RedisProxy Upgrading", message)
 	rp.setRedisProxyCondition(*c)
 }
-
 
 func (rf *RedisFailoverStatus) SetUpdatingCondition(message string) {
 	c := newRedisFailoverCondition(RedisFailoverConditionUpdating, corev1.ConditionTrue,
@@ -177,7 +174,6 @@ func (rp *RedisProxyStatus) setRedisProxyCondition(c Condition) {
 	}
 }
 
-
 func getRedisFailoverCondition(status *RedisFailoverStatus, t ConditionType) (int, *Condition) {
 	for i, c := range status.Conditions {
 		if t == c.Type {
@@ -195,7 +191,6 @@ func getRedisProxyCondition(status *RedisProxyStatus, t ConditionType) (int, *Co
 	}
 	return -1, nil
 }
-
 
 func newRedisFailoverCondition(condType ConditionType, status corev1.ConditionStatus, reason, message string) *Condition {
 	now := time.Now()

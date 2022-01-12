@@ -19,8 +19,9 @@ package middle
 import (
 	"context"
 	"fmt"
-	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
 	"time"
+
+	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
 
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
@@ -107,8 +108,8 @@ func (r *RedisFailoverReconciler) SetupHandler(mgr ctrl.Manager) {
 	rfchecker := service.NewRedisFailoverChecker(k8sService, r.Logger, r.Client.Status(), r.Record, redisClient)
 	rfhealer := service.NewRedisFailoverHealer(k8sService, r.Logger, r.Client.Status(), r.Record, redisClient)
 	status := redisfailover.StatusWriter{
-		Client:r.Client,
-		Ctx: context.TODO(),
+		Client: r.Client,
+		Ctx:    context.TODO(),
 	}
 
 	r.Handler = &redisfailover.RedisFailoverHandler{
@@ -122,5 +123,3 @@ func (r *RedisFailoverReconciler) SetupHandler(mgr ctrl.Manager) {
 	}
 
 }
-
-
