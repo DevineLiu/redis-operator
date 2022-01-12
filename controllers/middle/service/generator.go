@@ -394,7 +394,7 @@ func generateRedisStatefulSet(rf *v1alpha1.RedisFailover, labels map[string]stri
 
 	probeArg := "redis-cli -h $(hostname)"
 	if spec.Auth.SecretPath != "" {
-		probeArg = fmt.Sprintf("%s -a ${%s} ping", probeArg,redisPasswordEnv)
+		probeArg = fmt.Sprintf("%s -a ${%s} ping", probeArg, redisPasswordEnv)
 	} else {
 		probeArg = fmt.Sprintf("%s ping", probeArg)
 	}

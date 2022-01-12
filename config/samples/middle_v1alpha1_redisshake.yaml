@@ -1,0 +1,20 @@
+apiVersion: middle.alauda.cn/v1alpha1
+kind: RedisShake
+metadata:
+  name: redisshake-sample
+  namespace: hongru-redis
+spec:
+  # Add fields here
+  modelType: sync
+  keyExists: rewrite
+  image: devineliu/redis-shake:v1
+  resumeFromBreakPoint: true
+  source: 
+    type: sentinel
+    clusterName: r1
+  target: 
+    type: sentinel
+    clusterName: r2
+
+
+

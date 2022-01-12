@@ -156,10 +156,10 @@ func (r RedisFailoverKubeClient) EnsurePasswordSecrets(rf *middlev1alpha1.RedisF
 
 		if errors.IsNotFound(err) {
 			secretWithVersion = &corev1.Secret{}
-			secretWithVersion.Name=util2.GetRedisSecretName(rf)
+			secretWithVersion.Name = util2.GetRedisSecretName(rf)
 			timestr := now.Format(time.RFC3339)
 			secretWithVersion.Data[timestr] = passwd
-			secretWithVersion.Labels=labels
+			secretWithVersion.Labels = labels
 			r.K8SService.CreateSecret(rf.Namespace, secretWithVersion)
 		} else {
 			return err

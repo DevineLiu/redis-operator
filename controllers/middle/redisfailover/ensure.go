@@ -26,7 +26,7 @@ func (r *RedisFailoverHandler) Ensure(rf *middlev1alpha1.RedisFailover, labels m
 	}
 
 	if rf.Spec.Auth.SecretPath != "" {
-		if err:= r.RfServices.EnsurePasswordSecrets(rf,labels, own); err!=nil {
+		if err := r.RfServices.EnsurePasswordSecrets(rf, labels, own); err != nil {
 			return err
 		}
 	}
