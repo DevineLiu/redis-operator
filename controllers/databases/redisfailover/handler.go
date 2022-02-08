@@ -49,7 +49,7 @@ func (r *RedisFailoverHandler) Do(rf *databasesv1.RedisFailover) error {
 	if err := r.CheckAndHeal(rf); err != nil {
 		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("CheckAndHealError: %s", err.Error())
 		if rf.Status.IsWaitingPodReady() {
-			r.Record.Event(rf, v1.EventTypeNormal, "CreateCluster", "CreateCluster for waiting pod ")
+			r.Record.Event(rf, v1.EventTypeNormal, "CreateCluster", err.Error())
 		} else {
 			r.Record.Event(rf, v1.EventTypeWarning, "CheckAndHealError", err.Error())
 			rf.Status.SetFailedPhase(err.Error())

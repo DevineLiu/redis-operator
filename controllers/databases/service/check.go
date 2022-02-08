@@ -54,10 +54,11 @@ func (r RedisFailoverChecker) CheckRedisNumber(rf *databasesv1.RedisFailover) er
 		return err
 	}
 	if rf.Spec.Redis.Replicas != *ss.Spec.Replicas {
-		return errors.New("number  of stateful differ from spec")
+
+		return fmt.Errorf("number  of stateful differ from spec,cr: %d ss: %d", rf.Spec.Redis.Replicas, ss.Spec.Replicas)
 	}
 	if rf.Spec.Redis.Replicas != ss.Status.ReadyReplicas {
-		return errors.New("waiting all of redis pods become ready")
+		return fmt.Errorf("waiting all of redis pods become ready,cr:%d ss ready:%d", rf.Spec.Redis.Replicas, ss.Status.ReadyReplicas)
 	}
 	return nil
 }
@@ -67,8 +68,8 @@ func (r RedisFailoverChecker) CheckSentinelNumber(rf *databasesv1.RedisFailover)
 	if err != nil {
 		return err
 	}
-	if rf.Spec.Redis.Replicas != *deploy.Spec.Replicas {
-		return errors.New("number of sentinel pos differ from spec")
+	if rf.Spec.Sentinel.Replicas != *deploy.Spec.Replicas {
+		return fmt.Errorf("number of sentinel pods differ from spec,cr:%d deploy:%d", rf.Spec.Sentinel.Replicas, deploy.Spec.Replicas)
 	}
 	return err
 }

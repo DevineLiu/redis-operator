@@ -13,9 +13,8 @@ import (
 
 func (r *RedisFailoverHandler) CheckAndHeal(rf *databasesv1.RedisFailover) error {
 	if err := r.RfChecker.CheckRedisNumber(rf); err != nil {
-		r.Record.Event(rf, v1.EventTypeNormal, "WaitPodReady", "waiting for all redis pods ready")
-		r.Logger.WithValues("namespace", rf.Namespace, "name", rf.Name).V(2).Info("waiting all redis instance ready")
 		rf.Status.SetWaitingPodReady("waiting pod ready")
+		r.Record.Event(rf, v1.EventTypeNormal, "WaitPodReady", err.Error())
 		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
 			return err
 		}
@@ -24,6 +23,7 @@ func (r *RedisFailoverHandler) CheckAndHeal(rf *databasesv1.RedisFailover) error
 
 	if err := r.RfChecker.CheckSentinelNumber(rf); err != nil {
 		rf.Status.SetWaitingPodReady(err.Error())
+		r.Record.Event(rf, v1.EventTypeNormal, "WaitPodReady", err.Error())
 		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
 			return err
 		}
@@ -43,7 +43,7 @@ func (r *RedisFailoverHandler) CheckAndHeal(rf *databasesv1.RedisFailover) error
 
 	nMasters, err := r.RfChecker.GetNumberMasters(rf, &auth)
 	if err != nil {
-		rf.Status.SetWaitingPodReady(err.Error())
+		rf.Status.SetFailedPhase(err.Error())
 		if err := r.StatusWriter.Status().Update(context.Background(), rf); err != nil {
 			return err
 		}

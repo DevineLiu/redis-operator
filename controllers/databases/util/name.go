@@ -30,7 +30,7 @@ func GetRedisName(rf *databasesv1.RedisFailover) string {
 }
 
 func GetSentinelHeadlessSvc(rf *databasesv1.RedisFailover) string {
-	return GenerateName(SentinelName, fmt.Sprintf("%s-%s", rf.Name, "HeadLess"))
+	return GenerateName(SentinelName, fmt.Sprintf("%s-%s", rf.Name, "hl"))
 }
 
 func GetSentinelReadinessConfigmap(rf *databasesv1.RedisFailover) string {

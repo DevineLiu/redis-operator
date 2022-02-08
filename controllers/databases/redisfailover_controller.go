@@ -52,6 +52,7 @@ type RedisFailoverReconciler struct {
 //+kubebuilder:rbac:groups=databases.spotahome.com,resources=redisfailovers/finalizers,verbs=update
 
 func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	instance := &databasesv1.RedisFailover{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
@@ -66,13 +67,13 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.Logger.WithValues("namespace", instance.Namespace, "name", instance.Name).V(2).Info("waiting pod ready", err.Error())
 			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, err
 	}
 
 	if err = r.Handler.RfChecker.CheckSentinelReadyReplicas(instance); err != nil {
 
 		r.Logger.Info(err.Error())
-		return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 20 * time.Second}, err
 	}
 
 	r.Logger.V(5).Info(fmt.Sprintf("RedisFailover Spec:\n %+v", instance))
@@ -82,6 +83,8 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RedisFailoverReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.SetupEventRecord(mgr)
+	r.SetupHandler(mgr)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasesv1.RedisFailover{}).
 		Complete(r)
