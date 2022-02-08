@@ -4,4 +4,5 @@ resources:
 - middle_v1alpha1_redisbackup.yaml
 - middle_v1alpha1_redisproxy.yaml
 - middle_v1alpha1_redisshake.yaml
+- databases_v1_redisfailover.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

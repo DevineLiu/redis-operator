@@ -14,28 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middle
+package databases
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
-
-	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
-	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
-	"github.com/DevineLiu/redis-operator/controllers/middle/redisfailover"
-	"github.com/DevineLiu/redis-operator/controllers/middle/service"
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
+	"github.com/DevineLiu/redis-operator/controllers/databases/redisfailover"
+	"github.com/DevineLiu/redis-operator/controllers/databases/service"
+	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
+	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
+	"github.com/go-logr/logr"
 )
 
 const ReconcileTime = 60
@@ -49,13 +47,12 @@ type RedisFailoverReconciler struct {
 	Handler *redisfailover.RedisFailoverHandler
 }
 
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisfailovers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisfailovers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=middle.alauda.cn,resources=redisfailovers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=databases.spotahome.com,resources=redisfailovers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=databases.spotahome.com,resources=redisfailovers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=databases.spotahome.com,resources=redisfailovers/finalizers,verbs=update
 
 func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-	instance := &middlev1alpha1.RedisFailover{}
+	instance := &databasesv1.RedisFailover{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -65,7 +62,7 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err = r.Handler.Do(instance); err != nil {
-		if instance.Status.IsLastConditionWaitingPodReady() {
+		if instance.Status.IsWaitingPodReady() {
 			r.Logger.WithValues("namespace", instance.Namespace, "name", instance.Name).V(2).Info("waiting pod ready", err.Error())
 			return reconcile.Result{RequeueAfter: 20 * time.Second}, nil
 		}
@@ -85,15 +82,9 @@ func (r *RedisFailoverReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RedisFailoverReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.SetupEventRecord(mgr)
-	r.SetupHandler(mgr)
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&middlev1alpha1.RedisFailover{}).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 4,
-			Reconciler: r,
-		}).
+		For(&databasesv1.RedisFailover{}).
 		Complete(r)
-
 }
 
 // SetupEventRecord setup event  record for controller

@@ -3,34 +3,35 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
+	"net"
+	"time"
+
+	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
+	"github.com/DevineLiu/redis-operator/controllers/databases/util"
+	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
-	"github.com/DevineLiu/redis-operator/controllers/util"
-	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	goredis "github.com/go-redis/redis"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
-	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type RedisFailoverCheck interface {
-	CheckRedisNumber(rf *v1alpha1.RedisFailover) error
-	CheckSentinelNumber(rf *v1alpha1.RedisFailover) error
-	CheckSentinelReadyReplicas(rf *v1alpha1.RedisFailover) error
-	CheckAllSlavesFromMaster(master string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error
-	CheckSentinelNumberInMemory(sentinel string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error
-	CheckSentinelSlavesNumberInMemory(sentinel string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error
+	CheckRedisNumber(rf *databasesv1.RedisFailover) error
+	CheckSentinelNumber(rf *databasesv1.RedisFailover) error
+	CheckSentinelReadyReplicas(rf *databasesv1.RedisFailover) error
+	CheckAllSlavesFromMaster(master string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
+	CheckSentinelNumberInMemory(sentinel string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
+	CheckSentinelSlavesNumberInMemory(sentinel string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
 	CheckSentinelMonitor(sentinel string, monitor string, auth *util2.AuthConfig) error
-	GetMasterIP(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) (string, error)
-	GetNumberMasters(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) (int, error)
-	GetRedisesIPs(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) ([]string, error)
-	GetSentinelsIPs(rf *v1alpha1.RedisFailover) ([]string, error)
-	GetMinimumRedisPodTime(rf *v1alpha1.RedisFailover) (time.Duration, error)
-	CheckRedisConfig(rf *v1alpha1.RedisFailover, addr string, auth *util2.AuthConfig) error
+	GetMasterIP(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) (string, error)
+	GetNumberMasters(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) (int, error)
+	GetRedisesIPs(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) ([]string, error)
+	GetSentinelsIPs(rf *databasesv1.RedisFailover) ([]string, error)
+	GetMinimumRedisPodTime(rf *databasesv1.RedisFailover) (time.Duration, error)
+	CheckRedisConfig(rf *databasesv1.RedisFailover, addr string, auth *util2.AuthConfig) error
 }
 
 type RedisFailoverChecker struct {
@@ -47,7 +48,7 @@ func NewRedisFailoverChecker(k8SService k8s.Services, log logr.Logger, status cl
 	}
 }
 
-func (r RedisFailoverChecker) CheckRedisNumber(rf *v1alpha1.RedisFailover) error {
+func (r RedisFailoverChecker) CheckRedisNumber(rf *databasesv1.RedisFailover) error {
 	ss, err := r.K8SService.GetStatefulSet(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func (r RedisFailoverChecker) CheckRedisNumber(rf *v1alpha1.RedisFailover) error
 	return nil
 }
 
-func (r RedisFailoverChecker) CheckSentinelNumber(rf *v1alpha1.RedisFailover) error {
+func (r RedisFailoverChecker) CheckSentinelNumber(rf *databasesv1.RedisFailover) error {
 	deploy, err := r.K8SService.GetDeployment(rf.Namespace, util2.GetSentinelName(rf))
 	if err != nil {
 		return err
@@ -72,7 +73,7 @@ func (r RedisFailoverChecker) CheckSentinelNumber(rf *v1alpha1.RedisFailover) er
 	return err
 }
 
-func (r RedisFailoverChecker) CheckSentinelReadyReplicas(rf *v1alpha1.RedisFailover) error {
+func (r RedisFailoverChecker) CheckSentinelReadyReplicas(rf *databasesv1.RedisFailover) error {
 	d, err := r.K8SService.GetDeployment(rf.Namespace, util.GetSentinelName(rf))
 	if err != nil {
 		return err
@@ -83,7 +84,7 @@ func (r RedisFailoverChecker) CheckSentinelReadyReplicas(rf *v1alpha1.RedisFailo
 	return nil
 }
 
-func (r RedisFailoverChecker) CheckAllSlavesFromMaster(master string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverChecker) CheckAllSlavesFromMaster(master string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	rips, err := r.GetRedisesIPs(rf, auth)
 	if err != nil {
 		return err
@@ -100,7 +101,7 @@ func (r RedisFailoverChecker) CheckAllSlavesFromMaster(master string, rf *v1alph
 	return nil
 }
 
-func (r RedisFailoverChecker) CheckSentinelNumberInMemory(sentinel string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverChecker) CheckSentinelNumberInMemory(sentinel string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	nSentinels, err := r.RedisClient.GetNumberSentinelsInMemory(sentinel, auth)
 	if err != nil {
 		return err
@@ -110,7 +111,7 @@ func (r RedisFailoverChecker) CheckSentinelNumberInMemory(sentinel string, rf *v
 	return nil
 }
 
-func (r RedisFailoverChecker) CheckSentinelSlavesNumberInMemory(sentinel string, rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverChecker) CheckSentinelSlavesNumberInMemory(sentinel string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	nSlaves, err := r.RedisClient.GetNumberSentinelSlavesInMemory(sentinel, auth)
 	if err != nil {
 		return err
@@ -131,7 +132,7 @@ func (r RedisFailoverChecker) CheckSentinelMonitor(sentinel string, monitor stri
 	return nil
 }
 
-func (r RedisFailoverChecker) GetMasterIP(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) (string, error) {
+func (r RedisFailoverChecker) GetMasterIP(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) (string, error) {
 	rips, err := r.GetRedisesIPs(rf, auth)
 	if err != nil {
 		return "", err
@@ -153,7 +154,7 @@ func (r RedisFailoverChecker) GetMasterIP(rf *v1alpha1.RedisFailover, auth *util
 	return masters[0], nil
 }
 
-func (r RedisFailoverChecker) GetNumberMasters(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) (int, error) {
+func (r RedisFailoverChecker) GetNumberMasters(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) (int, error) {
 	nMasters := 0
 	rips, err := r.GetRedisesIPs(rf, auth)
 	if err != nil {
@@ -171,7 +172,7 @@ func (r RedisFailoverChecker) GetNumberMasters(rf *v1alpha1.RedisFailover, auth 
 	return nMasters, err
 }
 
-func (r RedisFailoverChecker) GetRedisesIPs(rf *v1alpha1.RedisFailover, auth *util2.AuthConfig) ([]string, error) {
+func (r RedisFailoverChecker) GetRedisesIPs(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) ([]string, error) {
 	redisips := []string{}
 	rps, err := r.K8SService.GetStatefulSetPods(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
@@ -185,7 +186,7 @@ func (r RedisFailoverChecker) GetRedisesIPs(rf *v1alpha1.RedisFailover, auth *ut
 	return redisips, nil
 }
 
-func (r RedisFailoverChecker) GetSentinelsIPs(rf *v1alpha1.RedisFailover) ([]string, error) {
+func (r RedisFailoverChecker) GetSentinelsIPs(rf *databasesv1.RedisFailover) ([]string, error) {
 	sentinels := []string{}
 	rps, err := r.K8SService.GetDeploymentPods(rf.Namespace, util2.GetSentinelName(rf))
 	if err != nil {
@@ -199,7 +200,7 @@ func (r RedisFailoverChecker) GetSentinelsIPs(rf *v1alpha1.RedisFailover) ([]str
 	return sentinels, nil
 }
 
-func (r RedisFailoverChecker) GetMinimumRedisPodTime(rf *v1alpha1.RedisFailover) (time.Duration, error) {
+func (r RedisFailoverChecker) GetMinimumRedisPodTime(rf *databasesv1.RedisFailover) (time.Duration, error) {
 	minTime := 100000 * time.Hour // More than ten years
 	rps, err := r.K8SService.GetStatefulSetPods(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
@@ -218,7 +219,7 @@ func (r RedisFailoverChecker) GetMinimumRedisPodTime(rf *v1alpha1.RedisFailover)
 	return minTime, nil
 }
 
-func (r RedisFailoverChecker) CheckRedisConfig(rf *v1alpha1.RedisFailover, addr string, auth *util2.AuthConfig) error {
+func (r RedisFailoverChecker) CheckRedisConfig(rf *databasesv1.RedisFailover, addr string, auth *util2.AuthConfig) error {
 	client := goredis.NewClient(&goredis.Options{
 		Addr:     net.JoinHostPort(addr, "6379"),
 		Password: auth.Password,
@@ -235,7 +236,7 @@ func (r RedisFailoverChecker) CheckRedisConfig(rf *v1alpha1.RedisFailover, addr 
 		if _, ok := parseConfigMap[key]; ok {
 			value, err = util.ParseRedisMemConf(value)
 			if err != nil {
-				r.Logger.Error(err, "redis config format err", "key", key, "value", value)
+				r.Logger.Error(err, "redis  format err", "key", key, "value", value)
 				continue
 			}
 		}

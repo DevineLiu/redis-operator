@@ -41,6 +41,32 @@ rules:
   - update
   - watch
 - apiGroups:
+  - databases.spotahome.com
+  resources:
+  - redisfailovers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - databases.spotahome.com
+  resources:
+  - redisfailovers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - databases.spotahome.com
+  resources:
+  - redisfailovers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - middle.alauda.cn
   resources:
   - redisbackups

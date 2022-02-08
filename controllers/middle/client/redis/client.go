@@ -10,7 +10,7 @@ import (
 
 	rediscli "github.com/go-redis/redis"
 
-	"github.com/DevineLiu/redis-operator/controllers/util"
+	"github.com/DevineLiu/redis-operator/controllers/databases/util"
 )
 
 // Client defines the functions necessary to connect to redis and sentinel to get or set what we need
@@ -24,7 +24,7 @@ type Client interface {
 	MakeMaster(ip string, auth *util.AuthConfig) error
 	MakeSlaveOf(ip string, masterIP string, auth *util.AuthConfig) error
 	GetSentinelMonitor(ip string, auth *util.AuthConfig) (string, error)
-	SetCustomSentinelConfig(ip string, configs []string, auth *util.AuthConfig) error
+	SetCustomSentinelConfig(ip string, configs map[string]string, auth *util.AuthConfig) error
 	SetCustomRedisConfig(ip string, configs map[string]string, auth *util.AuthConfig) error
 	GetAllRedisConfig(rClient *rediscli.Client) (map[string]string, error)
 }
@@ -250,16 +250,12 @@ func (c *client) GetSentinelMonitor(ip string, auth *util.AuthConfig) (string, e
 	return masterIP, nil
 }
 
-func (c *client) SetCustomSentinelConfig(ip string, configs []string, auth *util.AuthConfig) error {
+func (c *client) SetCustomSentinelConfig(ip string, configs map[string]string, auth *util.AuthConfig) error {
 	options := c.setOptions(ip, sentinelPort, auth)
 	rClient := rediscli.NewClient(options)
 	defer rClient.Close()
 
-	for _, config := range configs {
-		param, value, err := c.getConfigParameters(config)
-		if err != nil {
-			return err
-		}
+	for param, value := range configs {
 		if err := c.applySentinelConfig(param, value, rClient); err != nil {
 			return err
 		}

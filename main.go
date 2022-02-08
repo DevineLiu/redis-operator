@@ -31,7 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
+	databasescontrollers "github.com/DevineLiu/redis-operator/controllers/databases"
 	middlecontrollers "github.com/DevineLiu/redis-operator/controllers/middle"
 	//+kubebuilder:scaffold:imports
 )
@@ -45,6 +47,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(middlev1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(databasesv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -78,14 +82,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// if err = (&controllers.RedisFailoverReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// 	Logger: mgr.GetLogger(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "RedisFailover")
-	// 	os.Exit(1)
-	// }
 	// if err = (&controllers.RedisBackupReconciler{
 	// 	Client: mgr.GetClient(),
 	// 	Scheme: mgr.GetScheme(),
@@ -109,6 +105,14 @@ func main() {
 		Logger: mgr.GetLogger(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RedisShake")
+		os.Exit(1)
+	}
+	if err = (&databasescontrollers.RedisFailoverReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Logger: mgr.GetLogger(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RedisFailover")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

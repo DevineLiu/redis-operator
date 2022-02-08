@@ -34,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const ReconcileTime = 60
+
 // RedisShakeReconciler reconciles a RedisShake object
 type RedisShakeReconciler struct {
 	client.Client

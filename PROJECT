@@ -1,4 +1,3 @@
-domain: alauda.cn
 layout:
 - go.kubebuilder.io/v3
 multigroup: true
@@ -44,4 +43,13 @@ resources:
   kind: RedisShake
   path: github.com/DevineLiu/redis-operator/apis/middle/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: spotahome.com
+  group: databases
+  kind: RedisFailover
+  path: github.com/DevineLiu/redis-operator/apis/databases/v1
+  version: v1
 version: "3"

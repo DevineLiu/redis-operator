@@ -2,25 +2,26 @@ package service
 
 import (
 	"errors"
-	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
+	"sort"
+	"strconv"
+
+	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
+	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
-	util2 "github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strconv"
 )
 
 type RedisFailoverHeal interface {
 	MakeMaster(ip string, auth *util2.AuthConfig) error
-	SetOldestAsMaster(rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error
-	SetMasterOnAll(masterIP string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error
-	NewSentinelMonitor(ip string, monitor string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error
+	SetOldestAsMaster(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
+	SetMasterOnAll(masterIP string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
+	NewSentinelMonitor(ip string, monitor string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
 	RestoreSentinel(ip string, auth *util2.AuthConfig) error
-	SetSentinelCustomConfig(ip string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error
-	SetRedisCustomConfig(ip string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error
+	SetSentinelCustomConfig(ip string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
+	SetRedisCustomConfig(ip string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error
 }
 
 type RedisFailoverHealer struct {
@@ -41,7 +42,7 @@ func (r RedisFailoverHealer) MakeMaster(ip string, auth *util2.AuthConfig) error
 	return r.RedisClient.MakeMaster(ip, auth)
 }
 
-func (r RedisFailoverHealer) SetOldestAsMaster(rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverHealer) SetOldestAsMaster(rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	ssp, err := r.K8SService.GetStatefulSetPods(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func (r RedisFailoverHealer) SetOldestAsMaster(rf *middlev1alpha1.RedisFailover,
 	return nil
 }
 
-func (r RedisFailoverHealer) SetMasterOnAll(masterIP string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverHealer) SetMasterOnAll(masterIP string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	ssp, err := r.K8SService.GetStatefulSetPods(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func (r RedisFailoverHealer) SetMasterOnAll(masterIP string, rf *middlev1alpha1.
 	return nil
 }
 
-func (r RedisFailoverHealer) NewSentinelMonitor(ip string, monitor string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverHealer) NewSentinelMonitor(ip string, monitor string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	quorum := strconv.Itoa(int(rf.Spec.Sentinel.Replicas/2 + 1))
 	return r.RedisClient.MonitorRedis(ip, monitor, quorum, auth)
 }
@@ -99,14 +100,14 @@ func (r RedisFailoverHealer) RestoreSentinel(ip string, auth *util2.AuthConfig) 
 	return r.RedisClient.ResetSentinel(ip, auth)
 }
 
-func (r RedisFailoverHealer) SetSentinelCustomConfig(ip string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverHealer) SetSentinelCustomConfig(ip string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	if len(rf.Spec.Sentinel.CustomConfig) == 0 {
 		return nil
 	}
 	return r.RedisClient.SetCustomSentinelConfig(ip, rf.Spec.Sentinel.CustomConfig, auth)
 }
 
-func (r RedisFailoverHealer) SetRedisCustomConfig(ip string, rf *middlev1alpha1.RedisFailover, auth *util2.AuthConfig) error {
+func (r RedisFailoverHealer) SetRedisCustomConfig(ip string, rf *databasesv1.RedisFailover, auth *util2.AuthConfig) error {
 	if len(rf.Spec.Redis.CustomConfig) == 0 && len(auth.Password) == 0 {
 		return nil
 	}

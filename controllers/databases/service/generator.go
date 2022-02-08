@@ -2,15 +2,17 @@ package service
 
 import (
 	"fmt"
-	"github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
-	util2 "github.com/DevineLiu/redis-operator/controllers/util"
+	"strings"
+
+	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
+	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
+	util "github.com/DevineLiu/redis-operator/controllers/util"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strings"
 )
 
 const (
@@ -21,11 +23,11 @@ const (
 	redisPasswordEnv                     = "REDIS_PASSWORD"
 )
 
-func generateRedisService(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
+func generateRedisService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
 	name := util2.GetRedisName(rf)
 	namespace := rf.Namespace
 
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	redisTargetPort := intstr.FromInt(6379)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,10 +52,10 @@ func generateRedisService(rf *v1alpha1.RedisFailover, labels map[string]string, 
 	}
 }
 
-func generateRedisNodePortService(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
+func generateRedisNodePortService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
 	namespace := rf.Namespace
 
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	redisTargetPort := intstr.FromInt(6379)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -78,9 +80,9 @@ func generateRedisNodePortService(rf *v1alpha1.RedisFailover, labels map[string]
 	}
 }
 
-func newHeadLessSvcForCR(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
+func newHeadLessSvcForCR(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
 	sentinelPort := corev1.ServicePort{Name: "sentinel", Port: 26379}
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:          labels,
@@ -98,12 +100,12 @@ func newHeadLessSvcForCR(rf *v1alpha1.RedisFailover, labels map[string]string, o
 	return svc
 }
 
-func generateSentinelService(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
+func generateSentinelService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
 	name := util2.GetSentinelName(rf)
 	namespace := rf.Namespace
 
 	sentinelTargetPort := intstr.FromInt(26379)
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,14 +128,14 @@ func generateSentinelService(rf *v1alpha1.RedisFailover, labels map[string]strin
 	}
 }
 
-func generateSentinelConfigMap(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
+func generateSentinelConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
 	name := util2.GetSentinelName(rf)
 	namespace := rf.Namespace
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	sentinelConfigContent := `sentinel monitor mymaster 127.0.0.1 6379 2
-sentinel down-after-milliseconds mymaster 1000
-sentinel failover-timeout mymaster 3000
-sentinel parallel-syncs mymaster 2`
+sentinel down-after-milliseconds mymaster 5000
+sentinel failover-timeout mymaster 60000
+sentinel parallel-syncs mymaster 1`
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -147,10 +149,10 @@ sentinel parallel-syncs mymaster 2`
 	}
 }
 
-func generateSentinelReadinessProbeConfigMap(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
+func generateSentinelReadinessProbeConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
 	name := util2.GetSentinelReadinessConfigmap(rf)
 	namespace := rf.Namespace
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	checkContent := `#!/usr/bin/env sh
 set -eou pipefail
 redis-cli -h $(hostname) -p 26379 ping
@@ -176,10 +178,10 @@ fi`
 
 }
 
-func generateRedisShutdownConfigMap(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
+func generateRedisShutdownConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
 	name := util2.GetRedisShutdownConfigMapName(rf)
 	namespace := rf.Namespace
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	envSentinelHost := fmt.Sprintf("REDIS_SENTINEL_%s_SERVICE_HOST", strings.ToUpper(rf.Name))
 	envSentinelPort := fmt.Sprintf("REDIS_SENTINEL_%s_SERVICE_PORT_SENTINEL", strings.ToUpper(rf.Name))
 	shutdownContent := fmt.Sprintf(`#!/usr/bin/env sh
@@ -230,10 +232,10 @@ func generatePodDisruptionBudget(name string, namespace string, labels map[strin
 	}
 }
 
-func generateSentinelDeployment(rf *v1alpha1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *v1.Deployment {
+func generateSentinelDeployment(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *v1.Deployment {
 	name := util2.GetSentinelName(rf)
 	namespace := rf.Namespace
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.SentinelRoleName, rf.Name))
 	sentinelCommand := getSentinelCommand(rf)
 
 	return &v1.Deployment{
@@ -381,14 +383,14 @@ func generateSentinelDeployment(rf *v1alpha1.RedisFailover, labels map[string]st
 	}
 }
 
-func generateRedisStatefulSet(rf *v1alpha1.RedisFailover, labels map[string]string,
+func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]string,
 	ownerRefs []metav1.OwnerReference) *v1.StatefulSet {
 	name := util2.GetRedisName(rf)
 	namespace := rf.Namespace
 
 	spec := rf.Spec
 	redisCommand := getRedisCommand(rf)
-	labels = util2.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
+	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	volumeMounts := getRedisVolumeMounts(rf)
 	volumes := getRedisVolumes(rf)
 
@@ -515,7 +517,7 @@ func generateRedisStatefulSet(rf *v1alpha1.RedisFailover, labels map[string]stri
 	return ss
 }
 
-func createRedisExporterContainer(rf *v1alpha1.RedisFailover) corev1.Container {
+func createRedisExporterContainer(rf *databasesv1.RedisFailover) corev1.Container {
 	container := corev1.Container{
 		Name:            exporterContainerName,
 		Image:           rf.Spec.Redis.Exporter.Image,
@@ -564,7 +566,7 @@ func createRedisExporterContainer(rf *v1alpha1.RedisFailover) corev1.Container {
 	return container
 }
 
-func getRedisCommand(rf *v1alpha1.RedisFailover) []string {
+func getRedisCommand(rf *databasesv1.RedisFailover) []string {
 	cmds := []string{
 		"redis-server",
 		"--slaveof 127.0.0.1 6379",
@@ -613,7 +615,7 @@ func pullPolicy(specPolicy corev1.PullPolicy) corev1.PullPolicy {
 	return specPolicy
 }
 
-func getSentinelCommand(rf *v1alpha1.RedisFailover) []string {
+func getSentinelCommand(rf *databasesv1.RedisFailover) []string {
 	if len(rf.Spec.Sentinel.Command) > 0 {
 		return rf.Spec.Sentinel.Command
 	}
@@ -624,7 +626,7 @@ func getSentinelCommand(rf *v1alpha1.RedisFailover) []string {
 	}
 }
 
-func getRedisVolumeMounts(rf *v1alpha1.RedisFailover) []corev1.VolumeMount {
+func getRedisVolumeMounts(rf *databasesv1.RedisFailover) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		//{
 		//	Name:      redisConfigurationVolumeName,
@@ -643,7 +645,7 @@ func getRedisVolumeMounts(rf *v1alpha1.RedisFailover) []corev1.VolumeMount {
 	return volumeMounts
 }
 
-func getRedisDataVolumeName(rf *v1alpha1.RedisFailover) string {
+func getRedisDataVolumeName(rf *databasesv1.RedisFailover) string {
 	switch {
 	case rf.Spec.Redis.Storage.PersistentVolumeClaim != nil:
 		return rf.Spec.Redis.Storage.PersistentVolumeClaim.ObjectMeta.Name
@@ -654,7 +656,7 @@ func getRedisDataVolumeName(rf *v1alpha1.RedisFailover) string {
 	}
 }
 
-func getRedisVolumes(rf *v1alpha1.RedisFailover) []corev1.Volume {
+func getRedisVolumes(rf *databasesv1.RedisFailover) []corev1.Volume {
 	shutdownConfigMapName := util2.GetRedisShutdownConfigMapName(rf)
 
 	executeMode := int32(0744)
@@ -680,7 +682,7 @@ func getRedisVolumes(rf *v1alpha1.RedisFailover) []corev1.Volume {
 	return volumes
 }
 
-func getRedisDataVolume(rf *v1alpha1.RedisFailover) *corev1.Volume {
+func getRedisDataVolume(rf *databasesv1.RedisFailover) *corev1.Volume {
 	// This will find the volumed desired by the user. If no volume defined
 	// an EmptyDir will be used by default
 	switch {
