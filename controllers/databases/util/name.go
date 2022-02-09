@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 
 	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
 )
@@ -15,6 +16,9 @@ const (
 	SentinelRoleName       string = "sentinel"
 	SentinelConfigFileName string = "sentinel.conf"
 	HostnameTopologyKey    string = "kubernetes.io/hostname"
+	RedisBackupVolumeName  string = "backup-data"
+	RestoreContainerName   string = "restore"
+	RestoreDefaultImage    string = "build-harbor.alauda.cn/middleware/redis-backup:v3.7.0"
 )
 
 func GenerateName(typeName, metaName string) string {
@@ -47,4 +51,12 @@ func GetRedisSecretName(rf *databasesv1.RedisFailover) string {
 
 func GetRedisNodePortSvc(rf *databasesv1.RedisFailover) string {
 	return GenerateName(fmt.Sprintf("%s-%s", RedisName, "n"), rf.Name)
+}
+
+func GetClaimName(backupDestination string) string {
+	names := strings.Split(backupDestination, "/")
+	if len(names) != 2 {
+		return ""
+	}
+	return names[1]
 }

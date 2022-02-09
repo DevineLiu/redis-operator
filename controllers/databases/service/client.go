@@ -8,6 +8,7 @@ import (
 	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	util "github.com/DevineLiu/redis-operator/controllers/util"
+	redisbackup "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -97,19 +98,31 @@ func (r RedisFailoverKubeClient) EnsureRedisStatefulSet(rf *databasesv1.RedisFai
 	if err := r.ensurePodDisruptionBudget(rf, util2.SentinelName, util2.SentinelRoleName, labels, ownerRefs); err != nil {
 		return err
 	}
+
+	var backup *redisbackup.RedisBackup
+	if rf.Spec.Redis.Restore.BackupName != "" {
+		var err error
+		backup, err = r.K8SService.GetRedisBackup(rf.Namespace, rf.Spec.Redis.Restore.BackupName)
+		if err != nil {
+			return err
+		}
+	}
+
 	oldSs, err := r.K8SService.GetStatefulSet(rf.Namespace, util2.GetRedisName(rf))
 	if err != nil {
 		// If no resource we need to create.
 		if errors.IsNotFound(err) {
-			ss := generateRedisStatefulSet(rf, labels, ownerRefs)
+
+			ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
 			return r.K8SService.CreateStatefulSet(rf.Namespace, ss)
 		}
 
 		return err
 	}
+
 	if shouldUpdateRedis(rf.Spec.Redis.Resources, oldSs.Spec.Template.Spec.Containers[0].Resources,
 		rf.Spec.Redis.Replicas, *oldSs.Spec.Replicas) || exporterChanged(rf, oldSs) {
-		ss := generateRedisStatefulSet(rf, labels, ownerRefs)
+		ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
 		return r.K8SService.UpdateStatefulSet(rf.Namespace, ss)
 	}
 	return nil

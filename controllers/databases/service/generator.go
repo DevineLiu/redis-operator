@@ -2,11 +2,13 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
 	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
 	util "github.com/DevineLiu/redis-operator/controllers/util"
+	redisbackup "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -384,7 +386,7 @@ func generateSentinelDeployment(rf *databasesv1.RedisFailover, labels map[string
 }
 
 func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]string,
-	ownerRefs []metav1.OwnerReference) *v1.StatefulSet {
+	ownerRefs []metav1.OwnerReference, rb *redisbackup.RedisBackup) *v1.StatefulSet {
 	name := util2.GetRedisName(rf)
 	namespace := rf.Namespace
 
@@ -507,6 +509,20 @@ func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]s
 				},
 			},
 		})
+	}
+
+	if rf.Spec.Redis.Restore.BackupName != "" {
+		restore := createRestoreContainer(rf)
+		ss.Spec.Template.Spec.InitContainers = append(ss.Spec.Template.Spec.InitContainers, restore)
+		backupVolumes := corev1.Volume{
+			Name: util2.RedisBackupVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: util2.GetClaimName(rb.Status.Destination),
+				},
+			},
+		}
+		ss.Spec.Template.Spec.Volumes = append(ss.Spec.Template.Spec.Volumes, backupVolumes)
 	}
 
 	if rf.Spec.Redis.Exporter.Enabled {
@@ -703,4 +719,36 @@ func getRedisDataVolume(rf *databasesv1.RedisFailover) *corev1.Volume {
 			},
 		}
 	}
+}
+
+func createRestoreContainer(rf *databasesv1.RedisFailover) corev1.Container {
+	image := util2.RestoreDefaultImage
+	if len(os.Getenv("DEFAULT_BACKUP_IMAGE")) > 0 {
+		image = os.Getenv("DEFAULT_BACKUP_IMAGE")
+	}
+	privileged := true
+	if rf.Spec.Redis.Restore.Image != "" {
+		image = rf.Spec.Redis.Restore.Image
+	}
+	container := corev1.Container{
+		Name:            util2.RestoreContainerName,
+		Image:           image,
+		ImagePullPolicy: pullPolicy(rf.Spec.Redis.Restore.ImagePullPolicy),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      util2.RedisBackupVolumeName,
+				MountPath: "/backup",
+			},
+			{
+				Name:      getRedisDataVolumeName(rf),
+				MountPath: "/data",
+			},
+		},
+		Command: []string{"/bin/bash"},
+		Args:    []string{"-c", "/restore.sh"},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &privileged,
+		},
+	}
+	return container
 }
