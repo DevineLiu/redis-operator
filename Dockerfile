@@ -13,7 +13,7 @@ COPY go.sum go.sum
 COPY main.go main.go
 COPY apis/ apis/
 COPY controllers/ controllers/
-RUN go mod download
+#RUN go mod download
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux  go build -a -o manager main.go
