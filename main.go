@@ -35,6 +35,9 @@ import (
 	middlev1alpha1 "github.com/DevineLiu/redis-operator/apis/middle/v1alpha1"
 	databasescontrollers "github.com/DevineLiu/redis-operator/controllers/databases"
 	middlecontrollers "github.com/DevineLiu/redis-operator/controllers/middle"
+	controllersutil "github.com/DevineLiu/redis-operator/controllers/util"
+	redisbackupv1 "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
+	grafanadashboardv1 "gomod.alauda.cn/ait-apis/grafanadashboard/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -45,9 +48,9 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(middlev1alpha1.AddToScheme(scheme))
-
+	utilruntime.Must(grafanadashboardv1.AddToScheme(scheme))
+	utilruntime.Must(redisbackupv1.AddToScheme(scheme))
 	utilruntime.Must(databasesv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -116,6 +119,9 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+	go func() {
+		controllersutil.CreateGrafanaDashboard(mgr.GetClient())
+	}()
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

@@ -1,8 +1,13 @@
 package util
 
 import (
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/DevineLiu/redis-operator/extend/middleware-common/grafana"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func ParseRedisMemConf(p string) (string, error) {
@@ -39,4 +44,21 @@ func ParseRedisMemConf(p string) (string, error) {
 	}
 
 	return strconv.FormatInt(val*mul, 10), nil
+}
+
+var dashboardFolder = "/etc/config/grafana_dashboards"
+
+func CreateGrafanaDashboard(Client client.Client) {
+	if os.Getenv("DEBUG") == "true" {
+		dashboardFolder = "./grafana_dashboard"
+	}
+	dashboardManager := grafana.NewGrafanaDashboardMgr(Client).DashboardJsonFolder(dashboardFolder).
+		DashboardFolder("Redis").Namespace("operators")
+	err := dashboardManager.CreateGrafanaDashboard()
+	if err != nil {
+		fmt.Println("create grafana err:", err)
+		return
+	}
+
+	fmt.Println("add grafana dashboard finish")
 }
