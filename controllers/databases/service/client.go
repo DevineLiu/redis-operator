@@ -2,6 +2,7 @@ package service
 
 import (
 	"reflect"
+	"strconv"
 	"time"
 
 	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
@@ -108,24 +109,26 @@ func (r RedisFailoverKubeClient) EnsureRedisStatefulSet(rf *databasesv1.RedisFai
 		}
 	}
 
-	oldSs, err := r.K8SService.GetStatefulSet(rf.Namespace, util2.GetRedisName(rf))
-	if err != nil {
-		// If no resource we need to create.
-		if errors.IsNotFound(err) {
+	// oldSs, err := r.K8SService.GetStatefulSet(rf.Namespace, util2.GetRedisName(rf))
+	// if err != nil {
+	// 	// If no resource we need to create.
+	// 	if errors.IsNotFound(err) {
 
-			ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
-			return r.K8SService.CreateStatefulSet(rf.Namespace, ss)
-		}
+	// 		ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
+	// 		return r.K8SService.CreateStatefulSet(rf.Namespace, ss)
+	// 	}
 
-		return err
-	}
+	// 	return err
+	// }
 
-	if shouldUpdateRedis(rf.Spec.Redis.Resources, oldSs.Spec.Template.Spec.Containers[0].Resources,
-		rf.Spec.Redis.Replicas, *oldSs.Spec.Replicas) || exporterChanged(rf, oldSs) {
-		ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
-		return r.K8SService.UpdateStatefulSet(rf.Namespace, ss)
-	}
-	return nil
+	// if shouldUpdateRedis(rf.Spec.Redis.Resources, oldSs.Spec.Template.Spec.Containers[0].Resources,
+	// 	rf.Spec.Redis.Replicas, *oldSs.Spec.Replicas) || exporterChanged(rf, oldSs) {
+	// 	ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
+	// 	return r.K8SService.UpdateStatefulSet(rf.Namespace, ss)
+	// }
+
+	ss := generateRedisStatefulSet(rf, labels, ownerRefs, backup)
+	return r.K8SService.CreateOrUpdateStatefulSet(rf.Namespace, ss)
 }
 
 func (r RedisFailoverKubeClient) EnsureRedisService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
@@ -150,7 +153,9 @@ func (r RedisFailoverKubeClient) EnsureRedisShutdownConfigMap(rf *databasesv1.Re
 }
 
 func (r RedisFailoverKubeClient) EnsureRedisConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error {
-	panic("implement me")
+	configmap := generateRedisConfigMap(rf, labels, ownerRefs)
+	err := r.K8SService.CreateOrUpdateConfigMap(rf.Namespace, configmap)
+	return err
 }
 
 func (r RedisFailoverKubeClient) EnsureNotPresentRedisService(rf *databasesv1.RedisFailover) error {
@@ -171,11 +176,16 @@ func (r RedisFailoverKubeClient) EnsurePasswordSecrets(rf *databasesv1.RedisFail
 
 		if errors.IsNotFound(err) {
 			secretWithVersion = &corev1.Secret{}
+			secretWithVersion.Namespace = rf.Namespace
 			secretWithVersion.Name = util2.GetRedisSecretName(rf)
-			timestr := now.Format(time.RFC3339)
-			secretWithVersion.Data[timestr] = passwd
+			timestr := now.Unix()
+			secretWithVersion.Data = make(map[string][]byte)
+			secretWithVersion.Data[strconv.Itoa(int(timestr))] = passwd
 			secretWithVersion.Labels = labels
-			r.K8SService.CreateSecret(rf.Namespace, secretWithVersion)
+			err := r.K8SService.CreateSecret(rf.Namespace, secretWithVersion)
+			if err != nil {
+				return err
+			}
 		} else {
 			return err
 		}
@@ -183,12 +193,13 @@ func (r RedisFailoverKubeClient) EnsurePasswordSecrets(rf *databasesv1.RedisFail
 		lastData := []byte{}
 		initTime := time.Time{}
 		for k, v := range secretWithVersion.Data {
-			if time, err := time.Parse(time.RFC3339, k); err == nil {
-				if time.After(now) {
+			if time_i, err := strconv.Atoi(k); err == nil {
+				time_u := time.Unix(int64(time_i), 0)
+				if time_u.After(now) {
 					return errors.NewResourceExpired("now timestamp is large than secret's  timestamp")
 				}
-				if time.After(initTime) {
-					initTime = time
+				if time_u.After(initTime) {
+					initTime = time_u
 					lastData = v
 				}
 			} else {
@@ -197,7 +208,7 @@ func (r RedisFailoverKubeClient) EnsurePasswordSecrets(rf *databasesv1.RedisFail
 
 		}
 		if !reflect.DeepEqual(lastData, passwd) {
-			timestr := now.Format(time.RFC3339)
+			timestr := strconv.Itoa(int(now.Unix()))
 			secretWithVersion.Data[timestr] = passwd
 			r.K8SService.UpdateSecret(rf.Namespace, secretWithVersion)
 		}

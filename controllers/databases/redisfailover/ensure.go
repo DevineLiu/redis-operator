@@ -21,6 +21,10 @@ func (r *RedisFailoverHandler) Ensure(rf *databasesv1.RedisFailover, labels map[
 	if err := r.RfServices.EnsureSentinelProbeConfigMap(rf, labels, own); err != nil {
 		return err
 	}
+
+	if err := r.RfServices.EnsureRedisConfigMap(rf, labels, own); err != nil {
+		return err
+	}
 	if err := r.RfServices.EnsureRedisShutdownConfigMap(rf, labels, own); err != nil {
 		return err
 	}

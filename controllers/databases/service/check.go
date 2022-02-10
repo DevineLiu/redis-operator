@@ -7,10 +7,10 @@ import (
 	"time"
 
 	databasesv1 "github.com/DevineLiu/redis-operator/apis/databases/v1"
-	"github.com/DevineLiu/redis-operator/controllers/databases/util"
 	util2 "github.com/DevineLiu/redis-operator/controllers/databases/util"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/redis"
+	"github.com/DevineLiu/redis-operator/controllers/util"
 	"github.com/go-logr/logr"
 	goredis "github.com/go-redis/redis"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +75,7 @@ func (r RedisFailoverChecker) CheckSentinelNumber(rf *databasesv1.RedisFailover)
 }
 
 func (r RedisFailoverChecker) CheckSentinelReadyReplicas(rf *databasesv1.RedisFailover) error {
-	d, err := r.K8SService.GetDeployment(rf.Namespace, util.GetSentinelName(rf))
+	d, err := r.K8SService.GetDeployment(rf.Namespace, util2.GetSentinelName(rf))
 	if err != nil {
 		return err
 	}

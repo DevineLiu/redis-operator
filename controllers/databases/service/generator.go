@@ -23,6 +23,7 @@ const (
 	exporterContainerName                = "redis-exporter"
 	graceTime                            = 30
 	redisPasswordEnv                     = "REDIS_PASSWORD"
+	redisConfigurationVolumeName         = "redis-config"
 )
 
 func generateRedisService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.Service {
@@ -147,6 +148,52 @@ sentinel parallel-syncs mymaster 1`
 		},
 		Data: map[string]string{
 			util2.SentinelConfigFileName: sentinelConfigContent,
+		},
+	}
+}
+
+func generateRedisConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *corev1.ConfigMap {
+	configContent := `loglevel notice
+save 600 1
+stop-writes-on-bgsave-error yes
+rdbcompression yes
+rdbchecksum yes
+slave-read-only yes
+repl-diskless-sync no
+slowlog-max-len 128
+slowlog-log-slower-than 10000
+maxclients 11000
+hz 50
+timeout 60
+tcp-keepalive 300
+tcp-backlog 511
+`
+
+	if rf.Spec.Auth.SecretPath != "" {
+		configContent += `requirepass {REDIS_PASSWORD}
+masterauth {REDIS_PASSWORD}
+protected-mode yes
+`
+	} else {
+		configContent += `protected-mode no
+		`
+	}
+	for _, v := range rf.Spec.Redis.CustomCommandRenames {
+		configContent += fmt.Sprintf("\nrename-command %s %s", v.From, v.To)
+	}
+	initScriptContent := fmt.Sprintf("echo \"start init\"\ncp /redis/%s /redis-writable/%s", util2.RedisConfigFileName, util2.RedisConfigFileName)
+	initScriptContent += fmt.Sprintf("\nsed -i s/{REDIS_PASSWORD}/${REDIS_PASSWORD}/g  /redis-writable/%s", util2.RedisConfigFileName)
+	initScriptContent += "\n"
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            util2.GetRedisName(rf),
+			Namespace:       rf.Namespace,
+			Labels:          labels,
+			OwnerReferences: ownerRefs,
+		},
+		Data: map[string]string{
+			util2.RedisConfigFileName: configContent,
+			util2.RedisInitScript:     initScriptContent,
 		},
 	}
 }
@@ -395,7 +442,7 @@ func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]s
 	labels = util.MergeMap(labels, generateSelectorLabels(util2.RedisRoleName, rf.Name))
 	volumeMounts := getRedisVolumeMounts(rf)
 	volumes := getRedisVolumes(rf)
-
+	initprivileged := true
 	probeArg := "redis-cli -h $(hostname)"
 	if spec.Auth.SecretPath != "" {
 		probeArg = fmt.Sprintf("%s -a ${%s} ping", probeArg, redisPasswordEnv)
@@ -430,6 +477,40 @@ func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]s
 					NodeSelector:     rf.Spec.Redis.NodeSelector,
 					SecurityContext:  getSecurityContext(rf.Spec.Redis.SecurityContext),
 					ImagePullSecrets: rf.Spec.Redis.ImagePullSecrets,
+					InitContainers: []corev1.Container{
+						{
+							Name:            "config-copy",
+							Image:           rf.Spec.Sentinel.Image,
+							ImagePullPolicy: pullPolicy(rf.Spec.Sentinel.ImagePullPolicy),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      redisConfigurationVolumeName,
+									MountPath: "/redis",
+								},
+								{
+									Name:      getRedisDataVolumeName(rf),
+									MountPath: "/redis-writable",
+								},
+							},
+							Command: []string{
+								"sh",
+							},
+							Args: []string{"-c", fmt.Sprintf("/redis/%s", util2.RedisInitScript)},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &initprivileged,
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("32Mi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("10m"),
+									corev1.ResourceMemory: resource.MustParse("32Mi"),
+								},
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "redis",
@@ -499,6 +580,17 @@ func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]s
 	}
 	if rf.Spec.Auth.SecretPath != "" {
 		ss.Spec.Template.Spec.Containers[0].Env = append(ss.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+			Name: redisPasswordEnv,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: rf.Spec.Auth.SecretPath,
+					},
+					Key: "password",
+				},
+			},
+		})
+		ss.Spec.Template.Spec.InitContainers[0].Env = append(ss.Spec.Template.Spec.InitContainers[0].Env, corev1.EnvVar{
 			Name: redisPasswordEnv,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
@@ -579,6 +671,7 @@ func createRedisExporterContainer(rf *databasesv1.RedisFailover) corev1.Containe
 			},
 		})
 	}
+
 	return container
 }
 
@@ -644,12 +737,12 @@ func getSentinelCommand(rf *databasesv1.RedisFailover) []string {
 
 func getRedisVolumeMounts(rf *databasesv1.RedisFailover) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
-		//{
-		//	Name:      redisConfigurationVolumeName,
-		//	MountPath: "/redis",
-		//},
 		{
-			Name:      "redis-shutdown-config",
+			Name:      redisConfigurationVolumeName,
+			MountPath: "/redis",
+		},
+		{
+			Name:      redisShutdownConfigurationVolumeName,
 			MountPath: "/redis-shutdown",
 		},
 		{
@@ -683,6 +776,17 @@ func getRedisVolumes(rf *databasesv1.RedisFailover) []corev1.Volume {
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: shutdownConfigMapName,
+					},
+					DefaultMode: &executeMode,
+				},
+			},
+		},
+		{
+			Name: redisConfigurationVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: util2.GetRedisName(rf),
 					},
 					DefaultMode: &executeMode,
 				},

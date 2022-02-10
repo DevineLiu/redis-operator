@@ -14,6 +14,8 @@ const (
 	AppLabel               string = "redis-failover"
 	RedisRoleName          string = "redis"
 	SentinelRoleName       string = "sentinel"
+	RedisConfigFileName    string = "redis.conf"
+	RedisInitScript        string = "init.sh"
 	SentinelConfigFileName string = "sentinel.conf"
 	HostnameTopologyKey    string = "kubernetes.io/hostname"
 	RedisBackupVolumeName  string = "backup-data"
