@@ -25,5 +25,6 @@ FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
+COPY  grafana_dashboard/redis_dashboard.json /etc/config/grafana_dashboards/redis_dashboard.json
 
 ENTRYPOINT ["/manager"]
