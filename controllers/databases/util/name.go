@@ -8,19 +8,22 @@ import (
 )
 
 const (
-	BaseName               string = "rf"
-	SentinelName           string = "s"
-	RedisName              string = "r"
-	AppLabel               string = "redis-failover"
-	RedisRoleName          string = "redis"
-	SentinelRoleName       string = "sentinel"
-	RedisConfigFileName    string = "redis.conf"
-	RedisInitScript        string = "init.sh"
-	SentinelConfigFileName string = "sentinel.conf"
-	HostnameTopologyKey    string = "kubernetes.io/hostname"
-	RedisBackupVolumeName  string = "backup-data"
-	RestoreContainerName   string = "restore"
-	RestoreDefaultImage    string = "build-harbor.alauda.cn/middleware/redis-backup:v3.7.0"
+	BaseName                      string = "rf"
+	SentinelName                  string = "s"
+	RedisName                     string = "r"
+	AppLabel                      string = "redis-failover"
+	RedisRoleName                 string = "redis"
+	SentinelRoleName              string = "sentinel"
+	RedisConfigFileName           string = "redis.conf"
+	RedisInitScript               string = "init.sh"
+	SentinelConfigFileName        string = "sentinel.conf"
+	HostnameTopologyKey           string = "kubernetes.io/hostname"
+	RedisBackupVolumeName         string = "backup-data"
+	RestoreContainerName          string = "restore"
+	RestoreDefaultImage           string = "build-harbor.alauda.cn/middleware/redis-backup:v3.7.0"
+	RedisBackupServiceAccountName string = "redis-backup"
+	RedisBackupRoleName           string = "redis-backup"
+	RedisBackupRoleBindingName    string = "redis-backup"
 )
 
 func GenerateName(typeName, metaName string) string {
@@ -61,4 +64,8 @@ func GetClaimName(backupDestination string) string {
 		return ""
 	}
 	return names[1]
+}
+
+func GetCronJobName(redisName, scheduleName string) string {
+	return fmt.Sprintf("%s-backup-%s", redisName, scheduleName)
 }

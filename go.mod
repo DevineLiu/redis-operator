@@ -6,6 +6,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/jetstack/cert-manager v1.6.1
+	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
 	gomod.alauda.cn/ait-apis v0.1.5

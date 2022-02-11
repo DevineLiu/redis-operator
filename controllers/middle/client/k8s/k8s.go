@@ -16,6 +16,9 @@ type Services interface {
 	StatefulSet
 	Secret
 	RedisBackup
+	CronJob
+	ServiceAccount
+	RBAC
 }
 
 type services struct {
@@ -28,6 +31,9 @@ type services struct {
 	StatefulSet
 	Secret
 	RedisBackup
+	CronJob
+	ServiceAccount
+	RBAC
 }
 
 // New returns a new Kubernetes client set.
@@ -42,5 +48,8 @@ func New(kubecli client.Client, logger logr.Logger) Services {
 		StatefulSet:         NewStatefulSet(kubecli, logger),
 		Secret:              NewSecret(kubecli, logger),
 		RedisBackup:         NewRedisBackup(kubecli, logger),
+		CronJob:             NewCronJob(kubecli, logger),
+		ServiceAccount:      NewServiceAccount(kubecli, logger),
+		RBAC:                NewRBAC(kubecli, logger),
 	}
 }

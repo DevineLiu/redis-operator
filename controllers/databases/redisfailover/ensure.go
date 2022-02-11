@@ -41,5 +41,12 @@ func (r *RedisFailoverHandler) Ensure(rf *databasesv1.RedisFailover, labels map[
 	if err := r.RfServices.EnsureRedisStatefulSet(rf, labels, own); err != nil {
 		return err
 	}
+	if err := r.RfServices.EnsureBackupSchedule(rf, labels, own); err != nil {
+		return err
+	}
+	if err := r.RfServices.EnsureBackupRoleReady(rf); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	util "github.com/DevineLiu/redis-operator/controllers/util"
 	redisbackup "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
 	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -623,6 +624,108 @@ func generateRedisStatefulSet(rf *databasesv1.RedisFailover, labels map[string]s
 	}
 
 	return ss
+}
+
+func generateCronJob(schedule databasesv1.Schedule, rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) *batchv1.CronJob {
+	name := util2.GetCronJobName(rf.Name, schedule.Name)
+	image := util2.RestoreDefaultImage
+	if len(os.Getenv("DEFAULT_BACKUP_IMAGE")) > 0 {
+		image = os.Getenv("DEFAULT_BACKUP_IMAGE")
+	}
+	if rf.Spec.Redis.Backup.Image != "" {
+		image = rf.Spec.Redis.Backup.Image
+	}
+	backoffLimit := int32(0)
+	privileged := true
+
+	job := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            name,
+			Namespace:       rf.Namespace,
+			Labels:          labels,
+			OwnerReferences: ownerRefs,
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule:                   schedule.Schedule,
+			SuccessfulJobsHistoryLimit: &schedule.Keep,
+			FailedJobsHistoryLimit:     &schedule.Keep,
+			JobTemplate: batchv1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: batchv1.JobSpec{
+					BackoffLimit: &backoffLimit,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: labels,
+						},
+						Spec: corev1.PodSpec{
+							ServiceAccountName: util2.RedisBackupServiceAccountName,
+							RestartPolicy:      corev1.RestartPolicyNever,
+							Containers: []corev1.Container{
+								{
+									Name:            "backup-schedule",
+									Image:           image,
+									ImagePullPolicy: "Always",
+									Command:         []string{"/bin/bash"},
+									Args:            []string{"-c", "/schedule.sh"},
+									Env: []corev1.EnvVar{
+										{
+											Name: "BACKUP_JOB_NAME",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.name",
+												},
+											},
+										},
+										{
+											Name: "BACKUP_JOB_UID",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "metadata.uid",
+												},
+											},
+										},
+										{
+											Name:  "BACKUP_IMAGE",
+											Value: image,
+										},
+										{
+											Name:  "REDIS_FAILOVER_NAME",
+											Value: rf.Name,
+										},
+										{
+											Name:  "STORAGE_CLASS_NAME",
+											Value: schedule.Storage.StorageClassName,
+										},
+										{
+											Name:  "STORAGE_SIZE",
+											Value: schedule.Storage.Size.String(),
+										},
+										{
+											Name:  "SCHEDULE_NAME",
+											Value: schedule.Name,
+										},
+									},
+									SecurityContext: &corev1.SecurityContext{
+										Privileged: &privileged,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if schedule.KeepAfterDeletion {
+		job.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env = append(job.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "KEEP_AFTER_DELETION",
+				Value: "true",
+			})
+	}
+	return job
 }
 
 func createRedisExporterContainer(rf *databasesv1.RedisFailover) corev1.Container {

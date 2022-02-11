@@ -2,6 +2,7 @@ package service
 
 import (
 	"reflect"
+	"sort"
 	"strconv"
 	"time"
 
@@ -10,17 +11,23 @@ import (
 	"github.com/DevineLiu/redis-operator/controllers/middle/client/k8s"
 	util "github.com/DevineLiu/redis-operator/controllers/util"
 	redisbackup "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
+	v1 "github.com/DevineLiu/redis-operator/extend/redisbackup/v1"
 	"github.com/go-logr/logr"
+	"github.com/kylelemons/godebug/diff"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type RedisFailoverClient interface {
+	EnsureBackupRoleReady(rf *databasesv1.RedisFailover) error
+	EnsureBackupSchedule(rf *databasesv1.RedisFailover, labelsMap map[string]string, ownerRefs []metav1.OwnerReference) error
 	EnsureSentinelService(rf *databasesv1.RedisFailover, labels map[string]string, or []metav1.OwnerReference) error
 	EnsureSentinelHeadlessService(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error
 	EnsureSentinelConfigMap(rf *databasesv1.RedisFailover, labels map[string]string, ownerRefs []metav1.OwnerReference) error
@@ -228,6 +235,63 @@ func (r RedisFailoverKubeClient) ensurePodDisruptionBudget(rf *databasesv1.Redis
 	return r.K8SService.CreateIfNotExistsPodDisruptionBudget(namespace, pdb)
 }
 
+func (r *RedisFailoverKubeClient) EnsureBackupSchedule(rf *databasesv1.RedisFailover, labelsMap map[string]string, ownerRefs []metav1.OwnerReference) error {
+	// check backup numbers
+	for _, schedule := range rf.Spec.Redis.Backup.Schedule {
+		backups, _ := r.K8SService.ListRedisBackups(rf.Namespace, client.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"redisfailovers.databases.spotahome.com/name":         rf.Name,
+				"redisfailovers.databases.spotahome.com/scheduleName": schedule.Name,
+			}),
+		})
+		sort.Sort(redisbackup.BackupSorterByCreateTime(backups.Items))
+		for i, item := range backups.Items {
+			if i+1 > int(schedule.Keep) { // keep latest n backups
+				_ = r.K8SService.DeleteRedisBackup(item.Namespace, item.Name)
+			}
+		}
+	}
+
+	// check backup schedule
+	var desiredCronJob []string
+	for _, b := range rf.Spec.Redis.Backup.Schedule {
+		desiredCronJob = append(desiredCronJob, util2.GetCronJobName(rf.Name, b.Name))
+	}
+	// get schedule cronjob
+	cronjobs, err := r.K8SService.ListCronJobs(rf.Namespace, client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labelsMap),
+	})
+	if err != nil {
+		return err
+	}
+	var currentCronJob []string
+	for _, i2 := range cronjobs.Items {
+		currentCronJob = append(currentCronJob, i2.Name)
+	}
+	// diff cronjob
+	add, del, _ := diffCronJob(desiredCronJob, currentCronJob)
+	// not update or replace cronjob, it is complexity
+	// create cronjob
+	for _, i2 := range add {
+		var schedule databasesv1.Schedule
+		for _, s := range rf.Spec.Redis.Backup.Schedule {
+			if util2.GetCronJobName(rf.Name, s.Name) == i2 {
+				schedule = s
+			}
+		}
+		if schedule.Name == "" {
+			continue
+		}
+		job := generateCronJob(schedule, rf, labelsMap, ownerRefs)
+		_ = r.K8SService.CreateCronJob(rf.Namespace, job)
+	}
+	// clean up cronjob
+	for _, v := range del {
+		_ = r.K8SService.DeleteCronJob(rf.Namespace, v)
+	}
+	return nil
+}
+
 func shouldUpdateRedis(expectResource, containterResource corev1.ResourceRequirements, expectSize, replicas int32) bool {
 	if expectSize != replicas {
 		return true
@@ -263,4 +327,101 @@ func exporterChanged(rf *databasesv1.RedisFailover, sts *appsv1.StatefulSet) boo
 		}
 		return false
 	}
+}
+
+func diffCronJob(desired, current []string) (add, del, replace []string) {
+	add = make([]string, 0, 0)
+	del = make([]string, 0, 0)
+	replace = make([]string, 0, 0)
+	chunks := diff.DiffChunks(current, desired)
+	for _, chunk := range chunks {
+		add = append(add, chunk.Added...)
+		del = append(del, chunk.Deleted...)
+		replace = append(replace, chunk.Equal...)
+	}
+	return
+}
+
+func (r *RedisFailoverKubeClient) EnsureBackupRoleReady(rf *databasesv1.RedisFailover) error {
+	// check sa
+	if len(rf.Spec.Redis.Backup.Schedule) == 0 {
+		return nil
+	}
+	_, err := r.K8SService.GetServiceAccount(rf.Namespace, util2.RedisBackupServiceAccountName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err := r.K8SService.CreateServiceAccount(rf.Namespace, &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      util2.RedisBackupServiceAccountName,
+					Namespace: rf.Namespace,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	// check role
+	_, err = r.K8SService.GetRole(rf.Namespace, util2.RedisBackupRoleName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err := r.K8SService.CreateRole(rf.Namespace, &rbacv1.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      util2.RedisBackupRoleName,
+					Namespace: rf.Namespace,
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{corev1.GroupName},
+						Resources: []string{"pods", "pods/exec"},
+						Verbs:     []string{"*"},
+					},
+					{
+						APIGroups: []string{v1.SchemeGroupVersion.Group},
+						Resources: []string{"*"},
+						Verbs:     []string{"*"},
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	// check role binding
+	_, err = r.K8SService.GetRoleBinding(rf.Namespace, util2.RedisBackupRoleBindingName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err := r.K8SService.CreateRoleBinding(rf.Namespace, &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      util2.RedisBackupRoleBindingName,
+					Namespace: rf.Namespace,
+				},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: rbacv1.GroupName,
+					Kind:     "Role",
+					Name:     util2.RedisBackupRoleName,
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      util2.RedisBackupServiceAccountName,
+						Namespace: rf.Namespace,
+					},
+				},
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
